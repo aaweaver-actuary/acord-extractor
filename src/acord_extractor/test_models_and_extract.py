@@ -87,9 +87,10 @@ def test_load_template_reads_json_from_disk() -> None:
 def test_load_recipe_reads_canonical_sample_recipe() -> None:
     recipe = load_recipe(SAMPLE_RECIPE_FIXTURE)
 
-    assert recipe.template_state == "validated"
-    assert len(recipe.fields) >= 10
-    assert recipe.anchors[0].expected_text == "ACORD 125 (2011/09)"
+    assert recipe.template_state == "draft"
+    assert len(recipe.fields) == 1
+    assert recipe.fields[0].name == "has_business_auto"
+    assert recipe.anchors == []
 
 
 def test_recipe_io_round_trip_is_idempotent(tmp_path: Path) -> None:

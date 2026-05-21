@@ -10,6 +10,13 @@ import type {
 } from "../types";
 import { cloneField } from "../lib/template";
 
+interface AnnotationOperationState {
+  isLoadingSession: boolean;
+  isSavingDraft: boolean;
+  isRefreshingPreviews: boolean;
+  isPreviewingDraft: boolean;
+}
+
 interface AnnotationState {
   template: FormTemplate | null;
   pdfInfo: PdfDocumentInfo | null;
@@ -21,17 +28,29 @@ interface AnnotationState {
   selectedFieldId: string | null;
   currentPage: number;
   zoom: number;
+  operationState: AnnotationOperationState;
+  errorMessage: string | null;
   loadSession: (session: SessionStartResponse) => void;
   applySavedTemplate: (template: FormTemplate) => void;
   setCurrentPage: (page: number) => void;
   setZoom: (zoom: number) => void;
   setTransientRect: (rect: ViewportRect | null) => void;
+  setOperationState: (state: Partial<AnnotationOperationState>) => void;
+  setErrorMessage: (message: string | null) => void;
+  selectFieldForEditing: (field: FieldTemplate) => void;
   openDraftField: (field: FieldTemplate) => void;
   setDraftField: (field: FieldTemplate | null) => void;
   setPreviews: (previews: FieldPreview[]) => void;
   setDraftPreview: (preview: FieldPreview | null) => void;
   reset: () => void;
 }
+
+const initialOperationState: AnnotationOperationState = {
+  isLoadingSession: false,
+  isSavingDraft: false,
+  isRefreshingPreviews: false,
+  isPreviewingDraft: false,
+};
 
 const initialState = {
   template: null,
@@ -44,6 +63,8 @@ const initialState = {
   selectedFieldId: null,
   currentPage: 1,
   zoom: 1,
+  operationState: initialOperationState,
+  errorMessage: null,
 };
 
 export const useAnnotationStore = create<AnnotationState>((set) => ({
@@ -76,6 +97,19 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
   setCurrentPage: (page) => set({ currentPage: page }),
   setZoom: (zoom) => set({ zoom }),
   setTransientRect: (rect) => set({ transientRect: rect }),
+  setOperationState: (operationState) =>
+    set((state) => ({
+      operationState: { ...state.operationState, ...operationState },
+    })),
+  setErrorMessage: (errorMessage) => set({ errorMessage }),
+  selectFieldForEditing: (field) =>
+    set({
+      draftField: cloneField(field),
+      selectedFieldId: field.id,
+      transientRect: null,
+      draftPreview: null,
+      currentPage: field.page,
+    }),
   openDraftField: (field) =>
     set({
       draftField: cloneField(field),
@@ -97,5 +131,9 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
       ),
     }),
   setDraftPreview: (preview) => set({ draftPreview: preview }),
-  reset: () => set(initialState),
+  reset: () =>
+    set({
+      ...initialState,
+      operationState: { ...initialOperationState },
+    }),
 }));

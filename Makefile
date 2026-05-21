@@ -1,5 +1,5 @@
 BACKEND_HOST ?= 127.0.0.1
-BACKEND_PORT ?= 8000
+BACKEND_PORT ?= 8009
 FRONTEND_HOST ?= 127.0.0.1
 FRONTEND_PORT ?= 5173
 
@@ -41,17 +41,12 @@ pycheck: py-lint py-test
 
 jscheck: js-lint js-test
 
-start-build:
-	uv sync
-	cd accord-extractor-ui && \
-	npm install --cache ../.npm-cache && \
-	npm run build && \
-	cd ..
+jsstart:
+	$(FRONTEND_CMD)
 
-start: start-build
-	@command -v osascript >/dev/null 2>&1 || { echo "make start requires macOS osascript"; exit 1; }
-	@osascript -e 'tell application "Terminal" to do script "$(BACKEND_CMD)"'
-	@osascript -e 'tell application "Terminal" to do script "$(FRONTEND_CMD)"'
-	@echo "Backend starting at http://$(BACKEND_HOST):$(BACKEND_PORT)"
-	@echo "Frontend starting at http://$(FRONTEND_HOST):$(FRONTEND_PORT)"
+pystart:
+	$(BACKEND_CMD)
 
+start: pystart jsstart
+
+check: pycheck jscheck

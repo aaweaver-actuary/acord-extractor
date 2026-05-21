@@ -11,19 +11,16 @@ import {
   viewportRectToPdfBbox,
 } from "../lib/pdfCoordinates";
 import type { ViewportLike } from "../lib/pdfCoordinates";
+import { createDraftField } from "../lib/template";
+import { useAnnotationStore } from "../state/useAnnotationStore";
+import {
+  useCurrentPageSize,
+  useVisibleSavedFields,
+} from "../state/useAnnotationView";
 import type { FieldTemplate, ViewportRect } from "../types";
 
 interface ViewerPaneProps {
   pdfUrl: string;
-  currentPage: number;
-  zoom: number;
-  savedFields: FieldTemplate[];
-  draftField: FieldTemplate | null;
-  transientRect: ViewportRect | null;
-  onTransientRectChange: (rect: ViewportRect | null) => void;
-  onSelectField: (field: FieldTemplate) => void;
-  onCreateDraft: (rect: ViewportRect, viewport: ViewportLike) => void;
-  onDraftBboxChange: (bbox: [number, number, number, number]) => void;
 }
 
 type LoadedPage = Parameters<
@@ -46,7 +43,19 @@ function fieldColor(fieldType: FieldTemplate["field_type"]): string {
 }
 
 export function ViewerPane(props: ViewerPaneProps) {
-  const { currentPage, draftField, onCreateDraft } = props;
+  const currentPage = useAnnotationStore((state) => state.currentPage);
+  const draftField = useAnnotationStore((state) => state.draftField);
+  const setDraftField = useAnnotationStore((state) => state.setDraftField);
+  const selectFieldForEditing = useAnnotationStore(
+    (state) => state.selectFieldForEditing,
+  );
+  const setTransientRect = useAnnotationStore(
+    (state) => state.setTransientRect,
+  );
+  const transientRect = useAnnotationStore((state) => state.transientRect);
+  const zoom = useAnnotationStore((state) => state.zoom);
+  const visibleSavedFields = useVisibleSavedFields();
+  const currentPageSize = useCurrentPageSize();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draftRectRef = useRef<Konva.Rect | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
@@ -99,16 +108,28 @@ export function ViewerPane(props: ViewerPaneProps) {
         return;
       }
 
-      onCreateDraft(normalizeViewportRect(customEvent.detail.rect), viewport);
+      if (!currentPageSize) {
+        return;
+      }
+
+      setDraftField(
+        createDraftField({
+          currentPage,
+          existingFields: useAnnotationStore.getState().savedFields,
+          pageSize: [currentPageSize.width, currentPageSize.height],
+          viewportRect: normalizeViewportRect(customEvent.detail.rect),
+          viewport,
+        }),
+      );
     }
 
     window.addEventListener("acord:create-draft", handleCreateDraft);
     return () => {
       window.removeEventListener("acord:create-draft", handleCreateDraft);
     };
-  }, [currentPage, draftField, onCreateDraft, viewport]);
+  }, [currentPage, currentPageSize, draftField, setDraftField, viewport]);
 
-  const renderWidth = availableWidth * props.zoom;
+  const renderWidth = availableWidth * zoom;
 
   function handlePageLoadSuccess(page: LoadedPage) {
     const baseViewport = page.getViewport({ scale: 1, rotation: page.rotate });
@@ -130,7 +151,7 @@ export function ViewerPane(props: ViewerPaneProps) {
   }
 
   function handleStagePointerDown(event: KonvaEventObject<MouseEvent>) {
-    if (props.draftField || !viewport) {
+    if (draftField || !viewport) {
       return;
     }
     const stage = event.target.getStage();
@@ -141,7 +162,7 @@ export function ViewerPane(props: ViewerPaneProps) {
     if (!pointer) {
       return;
     }
-    props.onTransientRectChange({
+    setTransientRect({
       x: pointer.x,
       y: pointer.y,
       width: 0,
@@ -150,7 +171,7 @@ export function ViewerPane(props: ViewerPaneProps) {
   }
 
   function handleStagePointerMove(event: KonvaEventObject<MouseEvent>) {
-    if (!props.transientRect) {
+    if (!transientRect) {
       return;
     }
     const stage = event.target.getStage();
@@ -159,36 +180,40 @@ export function ViewerPane(props: ViewerPaneProps) {
       return;
     }
 
-    props.onTransientRectChange(
+    setTransientRect(
       normalizeViewportRect({
-        x: props.transientRect.x,
-        y: props.transientRect.y,
-        width: pointer.x - props.transientRect.x,
-        height: pointer.y - props.transientRect.y,
+        x: transientRect.x,
+        y: transientRect.y,
+        width: pointer.x - transientRect.x,
+        height: pointer.y - transientRect.y,
       }),
     );
   }
 
   function handleStagePointerUp() {
-    if (!props.transientRect || !viewport) {
+    if (!transientRect || !viewport || !currentPageSize) {
       return;
     }
-    if (props.transientRect.width < 6 || props.transientRect.height < 6) {
-      props.onTransientRectChange(null);
+    if (transientRect.width < 6 || transientRect.height < 6) {
+      setTransientRect(null);
       return;
     }
-    props.onCreateDraft(props.transientRect, viewport);
-    props.onTransientRectChange(null);
+
+    setDraftField(
+      createDraftField({
+        currentPage,
+        existingFields: useAnnotationStore.getState().savedFields,
+        pageSize: [currentPageSize.width, currentPageSize.height],
+        viewportRect: transientRect,
+        viewport,
+      }),
+    );
+    setTransientRect(null);
   }
 
-  const visibleSavedFields = props.savedFields.filter(
-    (field) =>
-      field.page === props.currentPage && field.id !== props.draftField?.id,
-  );
-
   const draftRect =
-    viewport && props.draftField && props.draftField.page === props.currentPage
-      ? pdfBboxToViewportRect(viewport, props.draftField.bbox)
+    viewport && draftField && draftField.page === currentPage
+      ? pdfBboxToViewportRect(viewport, draftField.bbox)
       : null;
 
   return (
@@ -201,8 +226,8 @@ export function ViewerPane(props: ViewerPaneProps) {
           >
             <div className="page-stack">
               <Page
-                key={`${props.currentPage}-${renderWidth}`}
-                pageNumber={props.currentPage}
+                key={`${currentPage}-${renderWidth}`}
+                pageNumber={currentPage}
                 width={renderWidth}
                 renderAnnotationLayer={false}
                 renderTextLayer={false}
@@ -231,17 +256,17 @@ export function ViewerPane(props: ViewerPaneProps) {
                           fill={fieldColor(field.field_type)}
                           stroke="rgba(15, 23, 42, 0.72)"
                           strokeWidth={1.25}
-                          onClick={() => props.onSelectField(field)}
+                          onClick={() => selectFieldForEditing(field)}
                         />
                       );
                     })}
 
-                    {props.transientRect ? (
+                    {transientRect ? (
                       <Rect
-                        x={props.transientRect.x}
-                        y={props.transientRect.y}
-                        width={props.transientRect.width}
-                        height={props.transientRect.height}
+                        x={transientRect.x}
+                        y={transientRect.y}
+                        width={transientRect.width}
+                        height={transientRect.height}
                         stroke="rgba(15, 118, 110, 0.9)"
                         dash={[8, 4]}
                         strokeWidth={2}
@@ -264,17 +289,30 @@ export function ViewerPane(props: ViewerPaneProps) {
                             if (!viewport) {
                               return;
                             }
-                            props.onDraftBboxChange(
-                              viewportRectToPdfBbox(viewport, {
+                            if (!draftField || !currentPageSize) {
+                              return;
+                            }
+
+                            setDraftField({
+                              ...draftField,
+                              bbox: viewportRectToPdfBbox(viewport, {
                                 x: event.target.x(),
                                 y: event.target.y(),
                                 width: event.target.width(),
                                 height: event.target.height(),
                               }),
-                            );
+                              page: currentPage,
+                              source_page_size: [
+                                currentPageSize.width,
+                                currentPageSize.height,
+                              ],
+                            });
                           }}
                           onTransformEnd={(event) => {
                             if (!viewport) {
+                              return;
+                            }
+                            if (!draftField || !currentPageSize) {
                               return;
                             }
                             const node = event.target;
@@ -282,14 +320,21 @@ export function ViewerPane(props: ViewerPaneProps) {
                             const height = node.height() * node.scaleY();
                             node.scaleX(1);
                             node.scaleY(1);
-                            props.onDraftBboxChange(
-                              viewportRectToPdfBbox(viewport, {
+
+                            setDraftField({
+                              ...draftField,
+                              bbox: viewportRectToPdfBbox(viewport, {
                                 x: node.x(),
                                 y: node.y(),
                                 width,
                                 height,
                               }),
-                            );
+                              page: currentPage,
+                              source_page_size: [
+                                currentPageSize.width,
+                                currentPageSize.height,
+                              ],
+                            });
                           }}
                         />
                         <Transformer

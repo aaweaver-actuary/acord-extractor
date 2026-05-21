@@ -79,6 +79,19 @@ describe("useAnnotationStore", () => {
     expect(state.selectedFieldId).toBe("fld_applicant_name_001");
   });
 
+  it("selects a field for editing and syncs the current page", () => {
+    const store = useAnnotationStore.getState();
+    store.loadSession(sessionFixture);
+    store.setCurrentPage(2);
+
+    store.selectFieldForEditing(sessionFixture.template.fields[0]);
+
+    const state = useAnnotationStore.getState();
+    expect(state.currentPage).toBe(1);
+    expect(state.draftField?.id).toBe("fld_applicant_name_001");
+    expect(state.selectedFieldId).toBe("fld_applicant_name_001");
+  });
+
   it("indexes preview results by field id", () => {
     const store = useAnnotationStore.getState();
     store.loadSession(sessionFixture);

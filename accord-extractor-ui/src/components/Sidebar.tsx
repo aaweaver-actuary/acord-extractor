@@ -3,7 +3,14 @@ import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import type { FieldPreview, FieldTemplate } from "../types";
+import type { FieldTemplate } from "../types";
+import { useAnnotationStore } from "../state/useAnnotationStore";
+import {
+  useCanSaveDraft,
+  useHasLoadedDocument,
+  useSelectedPreview,
+  useSortedFieldList,
+} from "../state/useAnnotationView";
 
 const fieldFormSchema = z.object({
   name: z.string().min(1),
@@ -33,18 +40,8 @@ const fieldFormSchema = z.object({
 type FieldFormValues = z.infer<typeof fieldFormSchema>;
 
 interface SidebarProps {
-  draftField: FieldTemplate | null;
-  fieldList: FieldTemplate[];
-  hasLoadedDocument: boolean;
-  previewByFieldId: Record<string, FieldPreview>;
-  selectedFieldId: string | null;
-  selectedPreview: FieldPreview | null;
   isSaving: boolean;
-  saveEnabled: boolean;
-  onSelectField: (field: FieldTemplate) => void;
-  onDraftChange: (field: FieldTemplate) => void;
   onSaveDraft: () => Promise<void>;
-  onCancelDraft: () => void;
 }
 
 function toFormValues(field: FieldTemplate): FieldFormValues {
@@ -78,20 +75,20 @@ function formValuesEqual(
 }
 
 export function Sidebar(props: SidebarProps) {
-  const {
-    draftField,
-    fieldList,
-    hasLoadedDocument,
-    isSaving,
-    onCancelDraft,
-    onDraftChange,
-    onSaveDraft,
-    onSelectField,
-    previewByFieldId,
-    saveEnabled,
-    selectedFieldId,
-    selectedPreview,
-  } = props;
+  const { isSaving, onSaveDraft } = props;
+  const draftField = useAnnotationStore((state) => state.draftField);
+  const previewByFieldId = useAnnotationStore(
+    (state) => state.previewByFieldId,
+  );
+  const selectedFieldId = useAnnotationStore((state) => state.selectedFieldId);
+  const selectFieldForEditing = useAnnotationStore(
+    (state) => state.selectFieldForEditing,
+  );
+  const setDraftField = useAnnotationStore((state) => state.setDraftField);
+  const fieldList = useSortedFieldList();
+  const hasLoadedDocument = useHasLoadedDocument();
+  const saveEnabled = useCanSaveDraft();
+  const selectedPreview = useSelectedPreview();
 
   const form = useForm<FieldFormValues>({
     resolver: zodResolver(fieldFormSchema),
@@ -149,8 +146,8 @@ export function Sidebar(props: SidebarProps) {
       return;
     }
 
-    onDraftChange(nextField);
-  }, [draftField, isFormDirty, onDraftChange, watchedValues]);
+    setDraftField(nextField);
+  }, [draftField, isFormDirty, setDraftField, watchedValues]);
 
   const previewText = useMemo(() => {
     if (!selectedPreview) {
@@ -205,7 +202,7 @@ export function Sidebar(props: SidebarProps) {
                           ? "field-row field-row-active"
                           : "field-row"
                       }
-                      onClick={() => onSelectField(field)}
+                      onClick={() => selectFieldForEditing(field)}
                     >
                       <span>
                         <strong>{field.label ?? field.name}</strong>
@@ -246,7 +243,7 @@ export function Sidebar(props: SidebarProps) {
           <button
             type="button"
             className="ghost-button sidebar-back-button"
-            onClick={onCancelDraft}
+            onClick={() => setDraftField(null)}
           >
             Field list
           </button>
@@ -348,7 +345,7 @@ export function Sidebar(props: SidebarProps) {
             <button
               type="button"
               className="ghost-button"
-              onClick={onCancelDraft}
+              onClick={() => setDraftField(null)}
             >
               Cancel
             </button>

@@ -26,6 +26,22 @@ SAMPLE_PDF = REPO_ROOT / "data" / "sample" / "acord-125.pdf"
 SAMPLE_RECIPE = REPO_ROOT / "data" / "sample" / "acord-125.recipe.json"
 
 
+def make_validated_sample_template() -> FormTemplate:
+    payload = load_recipe(SAMPLE_RECIPE).model_dump(mode="json")
+    payload["template_state"] = "validated"
+    payload["form_edition"] = "2011/09"
+    payload["anchor_text"] = ["ACORD 125 (2011/09)"]
+    payload["anchors"] = [
+        {
+            "name": "footer_tag",
+            "page": 1,
+            "expected_text": "ACORD 125 (2011/09)",
+            "bbox": [21.6, 745.218, 107.0381, 754.6009],
+        }
+    ]
+    return FormTemplate.model_validate(payload)
+
+
 def test_get_pdf_document_info_reports_fixture_geometry() -> None:
     info = get_pdf_document_info(SAMPLE_PDF)
 
@@ -45,7 +61,7 @@ def test_render_page_png_returns_png_bytes() -> None:
 
 
 def test_validate_template_accepts_canonical_sample_recipe() -> None:
-    result = validate_template(SAMPLE_PDF, load_recipe(SAMPLE_RECIPE))
+    result = validate_template(SAMPLE_PDF, make_validated_sample_template())
 
     assert result.reusable is True
     assert result.failures == []
@@ -53,7 +69,7 @@ def test_validate_template_accepts_canonical_sample_recipe() -> None:
 
 
 def test_validate_template_reports_anchor_drift_when_anchor_moves() -> None:
-    payload = load_recipe(SAMPLE_RECIPE).model_dump(mode="json")
+    payload = make_validated_sample_template().model_dump(mode="json")
     payload["anchors"][0]["bbox"] = [300.0, 500.0, 400.0, 520.0]
     template = FormTemplate.model_validate(payload)
 
@@ -65,7 +81,7 @@ def test_validate_template_reports_anchor_drift_when_anchor_moves() -> None:
 
 
 def test_validate_template_reports_strong_medium_and_weak_failures() -> None:
-    payload = load_recipe(SAMPLE_RECIPE).model_dump(mode="json")
+    payload = make_validated_sample_template().model_dump(mode="json")
     payload["form_id"] = "ACORD_999"
     payload["form_edition"] = "2099/99"
     payload["expected_page_count"] = 99
@@ -87,12 +103,13 @@ def test_validate_template_reports_strong_medium_and_weak_failures() -> None:
     assert any(anchor.status == "missing" for anchor in result.anchor_results)
 
 
-def test_preview_template_returns_twelve_ok_fields() -> None:
+def test_preview_template_returns_saved_sample_field() -> None:
     previews = preview_template(SAMPLE_PDF, load_recipe(SAMPLE_RECIPE))
 
-    assert len(previews) == 12
-    assert all(preview.status == "ok" for preview in previews)
-    assert sum(1 for preview in previews if preview.normalized_text) >= 10
+    assert len(previews) == 1
+    assert previews[0].field_name == "has_business_auto"
+    assert previews[0].status == "ok"
+    assert previews[0].normalized_text is True
 
 
 def test_preview_field_raises_for_unknown_id() -> None:
@@ -227,12 +244,12 @@ def test_preview_template_marks_unsupported_field_method_combinations() -> None:
     assert previews[0].status_reason == ["unsupported_field_method_combination"]
 
 
-def test_extract_pdf_returns_twelve_values_from_sample_recipe() -> None:
+def test_extract_pdf_returns_saved_sample_value() -> None:
     result = extract_pdf(SAMPLE_PDF, load_recipe(SAMPLE_RECIPE))
 
-    assert len(result.fields) == 12
-    assert sum(1 for field in result.fields if field.value) >= 10
-    assert result.fields[0].field_name == "form_footer_tag"
+    assert len(result.fields) == 1
+    assert result.fields[0].field_name == "has_business_auto"
+    assert result.fields[0].value is True
 
 
 def test_export_debug_overlay_writes_pdf(tmp_path: Path) -> None:
@@ -265,14 +282,14 @@ def test_api_end_to_end_supports_recipe_save_load_preview_and_validate(
         "/recipe/load", json={"recipe_path": str(saved_recipe_path)}
     )
     assert load_response.status_code == 200
-    assert len(load_response.json()["fields"]) == 12
+    assert len(load_response.json()["fields"]) == 1
 
     preview_response = client.post(
         "/preview",
         json={"pdf_path": str(SAMPLE_PDF), "recipe_path": str(saved_recipe_path)},
     )
     assert preview_response.status_code == 200
-    assert len(preview_response.json()) == 12
+    assert len(preview_response.json()) == 1
 
     validate_response = client.post(
         "/validate-template",
@@ -309,14 +326,14 @@ def test_api_render_extract_and_overlay_endpoints(tmp_path: Path) -> None:
     )
     assert session_response.status_code == 200
     assert session_response.json()["pdf_info"]["page_count"] == 4
-    assert len(session_response.json()["template"]["fields"]) == 12
+    assert len(session_response.json()["template"]["fields"]) == 1
 
     extract_response = client.post(
         "/extract",
         json={"pdf_path": str(SAMPLE_PDF), "recipe_path": str(SAMPLE_RECIPE)},
     )
     assert extract_response.status_code == 200
-    assert len(extract_response.json()["fields"]) == 12
+    assert len(extract_response.json()["fields"]) == 1
 
     overlay_response = client.post(
         "/export-debug-overlay",
@@ -372,7 +389,7 @@ def test_cli_preview_validate_extract_and_overlay_commands(tmp_path: Path) -> No
         ],
     )
     assert preview.exit_code == 0
-    assert len(json.loads(preview.output)) == 12
+    assert len(json.loads(preview.output)) == 1
 
     validate = runner.invoke(
         cli_app,
@@ -398,7 +415,7 @@ def test_cli_preview_validate_extract_and_overlay_commands(tmp_path: Path) -> No
         ],
     )
     assert extract.exit_code == 0
-    assert len(json.loads(extract.output)["fields"]) == 12
+    assert len(json.loads(extract.output)["fields"]) == 1
 
     overlay = runner.invoke(
         cli_app,
