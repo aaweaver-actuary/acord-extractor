@@ -14,3 +14,5 @@ node_modules/
 accord-extractor-ui/node_modules/
 accord-extractor-ui/dist/
 .npm-cache/
+.coverage
+accord-extractor-ui/package-lock.json

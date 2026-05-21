@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Andy Weaver", email = "andrewayersweaver@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.136.1",
     "fitz>=0.0.1.dev2",
