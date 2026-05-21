@@ -37,6 +37,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
 }
 
 button,
@@ -61,9 +63,7 @@ select {
 }
 
 .navbar-shell {
-  display: grid;
-  gap: 14px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 h1,
@@ -214,6 +214,66 @@ select:focus {
   align-items: flex-start;
 }
 
+.navbar-bar-compact {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 18px;
+  position: relative;
+  z-index: 12;
+}
+
+.navbar-brand-lockup {
+  display: grid;
+  gap: 3px;
+  min-width: max-content;
+}
+
+.navbar-brand {
+  font-family: var(--mono-font);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
+
+.navbar-meta {
+  color: var(--ink-soft);
+  font-size: 0.77rem;
+}
+
+.navbar-status-group {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.navbar-path-summary,
+.navbar-upload-state {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(71, 57, 37, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+}
+
+.navbar-path-summary {
+  max-width: min(24rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navbar-upload-state {
+  color: var(--accent-strong);
+}
+
 .navbar-title {
   font-size: clamp(2rem, 3.4vw, 3rem);
   margin-bottom: 8px;
@@ -228,20 +288,30 @@ select:focus {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .nav-menu {
   position: relative;
 }
 
+.nav-menu-wide {
+  position: relative;
+}
+
+.nav-menu[open] {
+  z-index: 8;
+}
+
 .nav-menu > summary {
   list-style: none;
   border-radius: 999px;
-  padding: 11px 18px;
+  padding: 8px 14px;
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(71, 57, 37, 0.12);
   cursor: pointer;
   user-select: none;
+  font-size: 0.88rem;
 }
 
 .nav-menu > summary::-webkit-details-marker {
@@ -265,7 +335,43 @@ select:focus {
   border-radius: 20px;
   background: var(--panel-strong);
   box-shadow: var(--shadow);
-  z-index: 5;
+  z-index: 20;
+}
+
+.nav-menu-panel-wide {
+  min-width: min(38rem, 94vw);
+}
+
+.nav-panel-section {
+  display: grid;
+  gap: 10px;
+}
+
+.nav-file-actions {
+  gap: 8px;
+}
+
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+.native-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .nav-view-row {
@@ -302,6 +408,17 @@ select:focus {
 
 .navbar-field-wide {
   grid-column: span 1;
+}
+
+.path-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.path-picker-button {
+  white-space: nowrap;
 }
 
 .navbar-checkbox {
@@ -350,11 +467,13 @@ select:focus {
 
 .viewer-pane {
   min-height: 78vh;
+  height: 78vh;
 }
 
 .viewer-scroll {
   overflow: auto;
   min-height: 100%;
+  height: 100%;
   border-radius: 28px;
   border: 1px solid var(--line);
   background: linear-gradient(
@@ -364,6 +483,7 @@ select:focus {
   );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
   padding: 18px;
+  scrollbar-gutter: stable both-edges;
 }
 
 .viewer-canvas {
@@ -385,6 +505,35 @@ select:focus {
 .viewer-state,
 .empty-pane {
   padding: 28px;
+}
+
+.viewer-drop-target {
+  min-height: 32vh;
+  display: grid;
+  gap: 10px;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  border: 2px dashed rgba(184, 73, 47, 0.28);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 247, 0.94),
+    rgba(247, 238, 227, 0.92)
+  );
+}
+
+.viewer-drop-target-active {
+  border-color: rgba(184, 73, 47, 0.68);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 247, 242, 0.98),
+    rgba(255, 236, 226, 0.96)
+  );
+}
+
+.viewer-placeholder-copy {
+  max-width: 32rem;
+  color: var(--ink-soft);
 }
 
 .sidebar-pane {
@@ -519,6 +668,99 @@ code {
   color: var(--danger);
 }
 
+.path-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(29, 34, 31, 0.36);
+  z-index: 40;
+}
+
+.path-picker-dialog {
+  width: min(780px, 100%);
+  max-height: min(76vh, 760px);
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+}
+
+.path-picker-toolbar {
+  display: grid;
+  gap: 12px;
+}
+
+.path-picker-location-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.path-picker-status {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink-soft);
+}
+
+.path-picker-status-error {
+  background: rgba(185, 28, 28, 0.12);
+  color: var(--danger);
+}
+
+.path-picker-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+}
+
+.path-picker-entry {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  text-align: left;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(71, 57, 37, 0.1);
+}
+
+.path-picker-entry-title {
+  display: grid;
+  gap: 4px;
+}
+
+.path-picker-entry small {
+  color: var(--ink-soft);
+}
+
+.path-picker-entry-type {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.path-picker-empty {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink-soft);
+}
+
 @media (max-width: 1120px) {
   .workspace-grid {
     grid-template-columns: 1fr;
@@ -526,8 +768,12 @@ code {
 
   .navbar-bar,
   .navbar-form {
-    grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .navbar-bar-compact {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .navbar-menu-row {
@@ -545,6 +791,10 @@ code {
 
   .navbar-help {
     grid-column: auto;
+  }
+
+  .path-field-row {
+    grid-template-columns: 1fr;
   }
 
   .navbar-submit-row {
@@ -588,5 +838,13 @@ code {
 
   .nav-menu-panel {
     min-width: min(22rem, 92vw);
+  }
+
+  .path-picker-dialog {
+    padding: 18px;
+  }
+
+  .path-picker-location-row {
+    grid-template-columns: 1fr;
   }
 }

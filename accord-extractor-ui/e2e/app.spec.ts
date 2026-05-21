@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { copyFile, mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -6,6 +6,17 @@ import path from "node:path";
 import { SAMPLE_PDF_PATH, SAMPLE_RECIPE_PATH } from "../src/lib/samplePaths";
 
 const SAMPLE_RECIPE_SOURCE_PATH = path.resolve("..", SAMPLE_RECIPE_PATH);
+const SAMPLE_PDF_SOURCE_PATH = path.resolve("..", SAMPLE_PDF_PATH);
+
+async function openWorkspaceMenu(page: Page) {
+  const pdfPathInput = page.getByLabel("PDF path");
+  if (await pdfPathInput.isVisible()) {
+    return;
+  }
+
+  await page.locator("summary", { hasText: "Workspace" }).click();
+  await expect(pdfPathInput).toBeVisible();
+}
 
 async function createTempRecipeCopy(): Promise<string> {
   const directory = await mkdtemp(path.join(os.tmpdir(), "acord-ui-e2e-"));
@@ -15,7 +26,7 @@ async function createTempRecipeCopy(): Promise<string> {
 }
 
 async function loadWorkspace(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   recipePath: string,
   options?: {
     useExistingRecipe?: boolean;
@@ -23,6 +34,7 @@ async function loadWorkspace(
   },
 ) {
   await page.goto("/");
+  await openWorkspaceMenu(page);
   await page.getByLabel("Recipe path").fill(recipePath);
   await page.getByLabel("PDF path").fill(SAMPLE_PDF_PATH);
   if (options?.useExistingRecipe) {
@@ -50,6 +62,25 @@ async function loadWorkspace(
   }
 }
 
+async function pickPath(
+  page: Page,
+  options: {
+    browseButtonName: string;
+    dialogName: string;
+    directory: string;
+    fileName: RegExp;
+  },
+) {
+  await openWorkspaceMenu(page);
+  await page.getByRole("button", { name: options.browseButtonName }).click();
+  const dialog = page.getByRole("dialog", { name: options.dialogName });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Current path").fill(options.directory);
+  await dialog.getByRole("button", { name: "Go" }).click();
+  await dialog.getByRole("button", { name: options.fileName }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
 async function readRecipe(recipePath: string) {
   return JSON.parse(await readFile(recipePath, "utf8")) as {
     fields: Array<{
@@ -64,7 +95,7 @@ async function readRecipe(recipePath: string) {
 }
 
 async function drawDraftField(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   offsets: {
     startX: number;
     startY: number;
@@ -92,7 +123,7 @@ async function drawDraftField(
 }
 
 async function fillDraftMetadata(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   values: {
     name: string;
     label: string;
@@ -106,10 +137,7 @@ async function fillDraftMetadata(
   await page.getByLabel("Extraction").selectOption(values.extractionMethod);
 }
 
-async function saveDraftField(
-  page: Parameters<typeof test>[0]["page"],
-  fieldRowName: RegExp,
-) {
+async function saveDraftField(page: Page, fieldRowName: RegExp) {
   await page.getByRole("button", { name: "Save field" }).click();
   await expect(page.getByRole("button", { name: fieldRowName })).toBeVisible();
   await expect(page.locator(".react-pdf__Page__canvas").last()).toBeVisible({
@@ -128,7 +156,7 @@ test("loads the sample workspace and keeps page plus zoom controls responsive", 
     expectSavedFields: true,
   });
 
-  await page.getByText("View").click();
+  await page.locator("summary", { hasText: /^View$/ }).click();
   await expect(
     page.getByRole("button", { name: "Previous page" }),
   ).toBeDisabled();
@@ -137,16 +165,74 @@ test("loads the sample workspace and keeps page plus zoom controls responsive", 
   await page.getByRole("button", { name: "Previous page" }).click();
   await expect(page.getByRole("spinbutton", { name: "Page" })).toHaveValue("1");
 
-  await page.getByRole("button", { name: "125%" }).dispatchEvent("click");
-  await expect(page.getByRole("button", { name: "125%" })).toHaveClass(
-    /chip-active/,
-  );
-  await page.getByRole("button", { name: "150%" }).dispatchEvent("click");
+  await page.getByRole("button", { name: "150%" }).click();
   await expect(page.getByRole("button", { name: "150%" })).toHaveClass(
     /chip-active/,
   );
+  await expect(page.getByRole("button", { name: "150%" })).toBeHidden({
+    timeout: 4_000,
+  });
+  await expect(page.locator(".viewer-state")).toHaveCount(0);
+  await expect(page.locator(".react-pdf__Page__canvas")).toHaveCount(1);
 
   await expect(page.locator(".field-row").first()).toBeVisible();
+});
+
+test("loads the sample workspace using the path picker", async ({ page }) => {
+  await page.goto("/");
+  await openWorkspaceMenu(page);
+  await page.getByLabel("PDF path").fill("");
+  await page.getByLabel("Recipe path").fill("");
+
+  await pickPath(page, {
+    browseButtonName: "Browse PDF on server",
+    dialogName: "Choose PDF from server",
+    directory: "data/sample",
+    fileName: /acord-125\.pdf/i,
+  });
+  await pickPath(page, {
+    browseButtonName: "Browse recipe on server",
+    dialogName: "Choose recipe from server",
+    directory: "data/sample",
+    fileName: /acord-125\.recipe\.json/i,
+  });
+
+  await expect(page.getByLabel("PDF path")).toHaveValue(/acord-125\.pdf$/);
+  await expect(page.getByLabel("Recipe path")).toHaveValue(
+    /acord-125\.recipe\.json$/,
+  );
+
+  await page.getByRole("checkbox", { name: "Use recipe on load" }).check();
+  await page.getByRole("button", { name: "Load workspace" }).click();
+
+  await expect(page.getByText("Loading PDF…")).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await expect(page.locator(".react-pdf__Page__canvas").last()).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.locator(".field-row").first()).toBeVisible();
+});
+
+test("loads a chosen local PDF from the workspace menu", async ({ page }) => {
+  await page.goto("/");
+  await openWorkspaceMenu(page);
+
+  await page
+    .getByLabel("Choose PDF from computer")
+    .setInputFiles(SAMPLE_PDF_SOURCE_PATH);
+
+  await expect(page.getByText("Loading PDF…")).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await expect(page.locator(".react-pdf__Page__canvas").last()).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(
+    page.getByText(
+      "No saved annotations yet. Draw the first box on the PDF to begin.",
+    ),
+  ).toBeVisible();
 });
 
 test("selects an existing field, previews it, and saves edits back to the recipe", async ({

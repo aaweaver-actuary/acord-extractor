@@ -1,4 +1,10 @@
 import {
+  getLocalWorkspaceSnapshotForSession,
+  deriveRecipeExportFileName,
+  saveLocalWorkspaceSnapshot,
+} from "../lib/localWorkspace";
+import { exportRecipeToFile } from "../lib/recipeExport";
+import {
   startTransition,
   useDeferredValue,
   useEffect,
@@ -6,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 
+import { debugError, debugLog } from "../lib/debugLogger";
 import { requestPreview, saveRecipe, startSession } from "../lib/api";
 import { buildTemplateSnapshot, upsertField } from "../lib/template";
 import { useAnnotationStore } from "./useAnnotationStore";
@@ -26,6 +33,7 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
   const { pdfPath, useExistingRecipe, workspaceRef } = options;
   const apiBaseUrl = useUiSettings((state) => state.apiBaseUrl);
   const recipePath = useUiSettings((state) => state.recipePath);
+  const setRecipePath = useUiSettings((state) => state.setRecipePath);
 
   const template = useAnnotationStore((state) => state.template);
   const pdfInfo = useAnnotationStore((state) => state.pdfInfo);
@@ -47,19 +55,34 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
 
   const deferredDraftField = useDeferredValue(draftField);
 
-  async function refreshAllPreviews(nextTemplate: FormTemplate) {
+  async function refreshAllPreviews(
+    nextTemplate: FormTemplate,
+    nextPdfPath = pdfPath,
+  ) {
+    debugLog("workflow", "refresh previews started", {
+      fieldCount: nextTemplate.fields.length,
+      pdfPath: nextPdfPath,
+    });
+
     setOperationState({ isRefreshingPreviews: true });
 
     try {
       if (!nextTemplate.fields.length) {
+        debugLog("workflow", "refresh previews skipped", {
+          reason: "no-fields",
+        });
         startTransition(() => setPreviews([]));
         return;
       }
 
       const previews = await requestPreview({
         apiBaseUrl,
-        pdfPath,
+        pdfPath: nextPdfPath,
         template: nextTemplate,
+      });
+
+      debugLog("workflow", "refresh previews completed", {
+        previewCount: previews.length,
       });
 
       startTransition(() => setPreviews(previews));
@@ -68,34 +91,86 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
     }
   }
 
-  async function handleLoadSession(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function loadWorkspace(options?: {
+    pdfPath?: string;
+    recipePath?: string;
+    useExistingRecipe?: boolean;
+  }) {
+    const nextPdfPath = options?.pdfPath ?? pdfPath;
+    const nextRecipePath = options?.recipePath ?? recipePath;
+    const nextUseExistingRecipe =
+      options?.useExistingRecipe ?? useExistingRecipe;
+
+    debugLog("workflow", "load workspace started", {
+      apiBaseUrl,
+      pdfPath: nextPdfPath,
+      recipePath: nextUseExistingRecipe ? nextRecipePath : undefined,
+      useExistingRecipe: nextUseExistingRecipe,
+    });
+
     setErrorMessage(null);
     setOperationState({ isLoadingSession: true });
 
     try {
       const session = await startSession({
         apiBaseUrl,
-        pdfPath,
+        pdfPath: nextPdfPath,
         recipePath:
-          useExistingRecipe && recipePath.trim() ? recipePath : undefined,
+          nextUseExistingRecipe && nextRecipePath.trim()
+            ? nextRecipePath
+            : undefined,
       });
 
-      startTransition(() => loadSessionIntoStore(session));
-      await refreshAllPreviews(session.template);
+      debugLog("workflow", "start session completed", {
+        hasRecipePath: Boolean(session.recipe_path),
+        pageCount: session.pdf_info.page_count,
+        pdfPath: session.pdf_path,
+      });
+
+      const localSnapshot = getLocalWorkspaceSnapshotForSession(session);
+      const restoredTemplate = localSnapshot?.template ?? session.template;
+
+      debugLog("workflow", "session template resolved", {
+        fieldCount: restoredTemplate.fields.length,
+        restoredFromLocalSnapshot: Boolean(localSnapshot),
+      });
+
+      startTransition(() => {
+        loadSessionIntoStore({ ...session, template: restoredTemplate });
+        if (localSnapshot) {
+          setRecipePath(localSnapshot.recipePath ?? "");
+        } else if (!session.recipe_path) {
+          setRecipePath("");
+        }
+      });
+      await refreshAllPreviews(restoredTemplate, nextPdfPath);
       workspaceRef.current?.scrollIntoView?.({
         behavior: "smooth",
         block: "start",
       });
     } catch (error) {
+      debugError("workflow", "load workspace failed", error, {
+        pdfPath: nextPdfPath,
+        recipePath: nextUseExistingRecipe ? nextRecipePath : undefined,
+      });
       setErrorMessage(toErrorMessage(error, "Unable to load session."));
     } finally {
       setOperationState({ isLoadingSession: false });
     }
   }
 
+  async function handleLoadSession(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    debugLog("workflow", "workspace form submitted", {
+      pdfPath,
+      recipePath: useExistingRecipe ? recipePath : undefined,
+      useExistingRecipe,
+    });
+    await loadWorkspace();
+  }
+
   async function handleSaveDraft() {
-    if (!draftField || !template || !pdfInfo || !recipePath.trim()) {
+    if (!draftField || !template || !pdfInfo) {
       return;
     }
 
@@ -106,13 +181,16 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
       upsertField(savedFields, draftField),
       pdfInfo,
     );
+    const activeRecipePath = recipePath.trim();
 
     try {
-      const savedTemplate = await saveRecipe({
-        apiBaseUrl,
-        recipePath,
-        template: nextTemplate,
-      });
+      const savedTemplate = activeRecipePath
+        ? await saveRecipe({
+            apiBaseUrl,
+            recipePath: activeRecipePath,
+            template: nextTemplate,
+          })
+        : nextTemplate;
 
       startTransition(() => {
         applySavedTemplate(savedTemplate);
@@ -129,6 +207,82 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
       setOperationState({ isSavingDraft: false });
     }
   }
+
+  async function handleExportRecipe() {
+    if (!template || !pdfInfo) {
+      return;
+    }
+
+    const exportFields = draftField
+      ? upsertField(savedFields, draftField)
+      : savedFields;
+    const exportTemplate = buildTemplateSnapshot(
+      template,
+      exportFields,
+      pdfInfo,
+    );
+    const existingSnapshot = getLocalWorkspaceSnapshotForSession({
+      pdf_path: pdfPath,
+      pdf_info: pdfInfo,
+    });
+
+    setErrorMessage(null);
+    setOperationState({ isExportingRecipe: true });
+
+    try {
+      const exportResult = await exportRecipeToFile({
+        template: exportTemplate,
+        suggestedFileName: deriveRecipeExportFileName({
+          pdfPath,
+          recipePath,
+          preferredRecipeFileName: existingSnapshot?.preferredRecipeFileName,
+        }),
+      });
+
+      if (!exportResult) {
+        return;
+      }
+
+      saveLocalWorkspaceSnapshot({
+        pdfPath,
+        pdfInfo,
+        recipePath,
+        preferredRecipeFileName: exportResult.fileName,
+        template: exportTemplate,
+      });
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error, "Unable to export recipe."));
+    } finally {
+      setOperationState({ isExportingRecipe: false });
+    }
+  }
+
+  useEffect(() => {
+    if (!template || !pdfInfo) {
+      return;
+    }
+
+    const mergedFields = draftField
+      ? upsertField(savedFields, draftField)
+      : savedFields;
+    const snapshotTemplate = buildTemplateSnapshot(
+      template,
+      mergedFields,
+      pdfInfo,
+    );
+
+    saveLocalWorkspaceSnapshot({
+      pdfPath,
+      pdfInfo,
+      recipePath,
+      preferredRecipeFileName:
+        getLocalWorkspaceSnapshotForSession({
+          pdf_path: pdfPath,
+          pdf_info: pdfInfo,
+        })?.preferredRecipeFileName ?? null,
+      template: snapshotTemplate,
+    });
+  }, [draftField, pdfInfo, pdfPath, recipePath, savedFields, template]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -192,9 +346,12 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
     errorMessage,
     handleLoadSession,
     handleSaveDraft,
+    handleExportRecipe,
+    isExportingRecipe: operationState.isExportingRecipe,
     isLoadingSession: operationState.isLoadingSession,
     isPreviewingDraft: operationState.isPreviewingDraft,
     isRefreshingPreviews: operationState.isRefreshingPreviews,
     isSavingDraft: operationState.isSavingDraft,
+    loadWorkspace,
   };
 }

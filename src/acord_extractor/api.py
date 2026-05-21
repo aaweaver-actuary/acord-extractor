@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from tempfile import gettempdir
+from typing import Any, Literal
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -22,7 +24,10 @@ from .render import get_pdf_document_info, render_page_png
 from .validation import validate_template
 
 
-app = FastAPI(title="ACORD Extractor", version="0.1.0")
+app = FastAPI(title="ACORD Data Extractor", version="0.1.0")
+
+UPLOAD_ROOT = Path(gettempdir()) / "acord-data-extractor" / "uploads"
+UPLOAD_EXTENSIONS: dict[str, str] = {"pdf": ".pdf", "recipe": ".json"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -81,11 +86,54 @@ class SessionStartResponse(BaseModel):
     template: FormTemplate
 
 
+class FileBrowserEntry(BaseModel):
+    name: str
+    path: str
+    entry_type: Literal["directory", "file"]
+
+
+class FileBrowserResponse(BaseModel):
+    current_path: str
+    parent_path: str | None = None
+    entries: list[FileBrowserEntry]
+
+
+class UploadedWorkspaceFile(BaseModel):
+    original_name: str
+    stored_path: str
+    file_kind: Literal["pdf", "recipe"]
+
+
 def _as_existing_path(path_text: str) -> Path:
     path = Path(path_text)
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Path does not exist: {path}")
     return path
+
+
+def _as_directory_path(path_text: str | None) -> Path:
+    if path_text is None:
+        return Path.cwd().resolve()
+
+    path = _as_existing_path(path_text).resolve()
+    if path.is_file():
+        path = path.parent
+    if not path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Not a directory: {path}")
+    return path
+
+
+def _parse_extensions(extensions: str | None) -> list[str]:
+    if not extensions:
+        return []
+
+    normalized: list[str] = []
+    for extension in extensions.split(","):
+        value = extension.strip().lower()
+        if not value:
+            continue
+        normalized.append(value if value.startswith(".") else f".{value}")
+    return normalized
 
 
 def _resolve_template(source: TemplateSourceRequest) -> FormTemplate:
@@ -98,9 +146,91 @@ def _resolve_template(source: TemplateSourceRequest) -> FormTemplate:
     )
 
 
+def _sanitize_upload_name(filename: str | None, fallback_extension: str) -> str:
+    raw_name = Path(filename or f"upload{fallback_extension}").name
+    sanitized = "".join(
+        character if character.isalnum() or character in {".", "-", "_"} else "_"
+        for character in raw_name
+    )
+    return sanitized or f"upload{fallback_extension}"
+
+
+async def _persist_uploaded_file(
+    uploaded_file: UploadFile, file_kind: Literal["pdf", "recipe"]
+) -> UploadedWorkspaceFile:
+    expected_extension = UPLOAD_EXTENSIONS[file_kind]
+    safe_name = _sanitize_upload_name(uploaded_file.filename, expected_extension)
+    if not safe_name.lower().endswith(expected_extension):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{file_kind.title()} uploads must end with {expected_extension}",
+        )
+
+    file_bytes = await uploaded_file.read()
+    await uploaded_file.close()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    stored_path = UPLOAD_ROOT / f"{uuid4().hex}-{safe_name}"
+    stored_path.write_bytes(file_bytes)
+    return UploadedWorkspaceFile(
+        original_name=safe_name,
+        stored_path=str(stored_path),
+        file_kind=file_kind,
+    )
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/filesystem/list", response_model=FileBrowserResponse)
+def filesystem_list(
+    path: str | None = None, extensions: str | None = None
+) -> FileBrowserResponse:
+    directory = _as_directory_path(path)
+    allowed_extensions = _parse_extensions(extensions)
+    entries: list[FileBrowserEntry] = []
+
+    children = sorted(
+        directory.iterdir(), key=lambda child: (not child.is_dir(), child.name.lower())
+    )
+    for child in children:
+        if child.name.startswith("."):
+            continue
+        if child.is_dir():
+            entries.append(
+                FileBrowserEntry(
+                    name=child.name,
+                    path=str(child),
+                    entry_type="directory",
+                )
+            )
+            continue
+        if allowed_extensions and not any(
+            child.name.lower().endswith(extension) for extension in allowed_extensions
+        ):
+            continue
+        entries.append(
+            FileBrowserEntry(name=child.name, path=str(child), entry_type="file")
+        )
+
+    parent_path = None if directory.parent == directory else str(directory.parent)
+    return FileBrowserResponse(
+        current_path=str(directory),
+        parent_path=parent_path,
+        entries=entries,
+    )
+
+
+@app.post("/filesystem/upload", response_model=UploadedWorkspaceFile)
+async def filesystem_upload(
+    file_kind: Literal["pdf", "recipe"],
+    file: UploadFile = File(...),
+) -> UploadedWorkspaceFile:
+    return await _persist_uploaded_file(file, file_kind)
 
 
 @app.get("/pdf/metadata", response_model=PdfDocumentInfo)

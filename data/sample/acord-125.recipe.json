@@ -38,14 +38,14 @@
   "fields": [
     {
       "id": "fld_field_1_01_001",
-      "name": "has_business_auto",
-      "label": "Business Auto Section?",
+      "name": "field_1_01",
+      "label": "field 1 01",
       "page": 1,
       "bbox": [
-        18.34213787723883,
-        534.9903228944222,
-        32.18940844074467,
-        544.8794009002685
+        18.37749579220996,
+        558.8378273921536,
+        32.28543013398213,
+        570.0943760222018
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [

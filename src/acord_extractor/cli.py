@@ -82,6 +82,6 @@ def save_recipe_command(
 @app.command("serve-api")
 def serve_api_command(
     host: str = typer.Option("127.0.0.1"),
-    port: int = typer.Option(8000, min=1),
+    port: int = typer.Option(8009, min=1),
 ) -> None:
     uvicorn.run(api_app, host=host, port=port)

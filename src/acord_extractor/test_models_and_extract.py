@@ -89,7 +89,7 @@ def test_load_recipe_reads_canonical_sample_recipe() -> None:
 
     assert recipe.template_state == "draft"
     assert len(recipe.fields) == 1
-    assert recipe.fields[0].name == "has_business_auto"
+    assert recipe.fields[0].name == "field_1_01"
     assert recipe.anchors == []
 
 

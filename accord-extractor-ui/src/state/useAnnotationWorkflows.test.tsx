@@ -1,12 +1,14 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { saveLocalWorkspaceSnapshot } from "../lib/localWorkspace";
 import type { SessionStartResponse } from "../types";
 import { SAMPLE_RECIPE_PATH } from "../lib/samplePaths";
 import { useAnnotationStore } from "./useAnnotationStore";
 import { useAnnotationWorkflows } from "./useAnnotationWorkflows";
 import { useUiSettings } from "./useUiSettings";
 
+const exportRecipeToFile = vi.fn();
 const requestPreview = vi.fn();
 const saveRecipe = vi.fn();
 const startSession = vi.fn();
@@ -15,6 +17,10 @@ vi.mock("../lib/api", () => ({
   requestPreview: (...args: unknown[]) => requestPreview(...args),
   saveRecipe: (...args: unknown[]) => saveRecipe(...args),
   startSession: (...args: unknown[]) => startSession(...args),
+}));
+
+vi.mock("../lib/recipeExport", () => ({
+  exportRecipeToFile: (...args: unknown[]) => exportRecipeToFile(...args),
 }));
 
 const sessionFixture: SessionStartResponse = {
@@ -92,9 +98,11 @@ describe("useAnnotationWorkflows", () => {
       apiBaseUrl: "http://127.0.0.1:8000",
       recipePath: SAMPLE_RECIPE_PATH,
     });
+    window.localStorage?.clear?.();
     requestPreview.mockReset();
     saveRecipe.mockReset();
     startSession.mockReset();
+    exportRecipeToFile.mockReset();
   });
 
   it("loads a session and refreshes previews through workflow state", async () => {
@@ -180,6 +188,134 @@ describe("useAnnotationWorkflows", () => {
     );
     expect(result.current.isSavingDraft).toBe(false);
     expect(result.current.errorMessage).toBeNull();
+  });
+
+  it("restores a saved local workspace snapshot for the same pdf fingerprint", async () => {
+    const workspaceRef = createWorkspaceRef();
+    startSession.mockResolvedValue({
+      ...sessionFixture,
+      template: {
+        ...sessionFixture.template,
+        fields: [],
+      },
+      recipe_path: null,
+    });
+    requestPreview.mockResolvedValue([previewFixture]);
+    saveLocalWorkspaceSnapshot({
+      pdfPath: sessionFixture.pdf_path,
+      pdfInfo: sessionFixture.pdf_info,
+      recipePath: "/tmp/restored.recipe.json",
+      template: sessionFixture.template,
+    });
+
+    const { result } = renderHook(() =>
+      useAnnotationWorkflows({
+        pdfPath: "/tmp/sample.pdf",
+        useExistingRecipe: false,
+        workspaceRef,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.loadWorkspace();
+    });
+
+    expect(useAnnotationStore.getState().savedFields).toHaveLength(1);
+    expect(useUiSettings.getState().recipePath).toBe(
+      "/tmp/restored.recipe.json",
+    );
+    expect(requestPreview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        template: sessionFixture.template,
+      }),
+    );
+  });
+
+  it("commits local-only saves and autosaves them without a recipe path", async () => {
+    const workspaceRef = createWorkspaceRef();
+    useUiSettings.setState({
+      apiBaseUrl: "http://127.0.0.1:8000",
+      recipePath: "",
+    });
+    requestPreview.mockResolvedValue([]);
+
+    const { result } = renderHook(() =>
+      useAnnotationWorkflows({
+        pdfPath: "/tmp/sample.pdf",
+        useExistingRecipe: false,
+        workspaceRef,
+      }),
+    );
+
+    act(() => {
+      useAnnotationStore.getState().loadSession(sessionFixture);
+      useAnnotationStore.getState().setDraftField({
+        ...sessionFixture.template.fields[0],
+        label: "Applicant Local Only",
+      });
+    });
+
+    await act(async () => {
+      await result.current.handleSaveDraft();
+    });
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(useAnnotationStore.getState().savedFields[0]?.label).toBe(
+      "Applicant Local Only",
+    );
+    const snapshotStore = JSON.parse(
+      window.localStorage.getItem("acord-ui-local-workspaces") ?? "{}",
+    ) as {
+      snapshots?: Record<
+        string,
+        {
+          recipePath: string | null;
+          template: { fields: Array<{ label: string }> };
+        }
+      >;
+    };
+    expect(snapshotStore.snapshots?.abc?.recipePath).toBeNull();
+    expect(snapshotStore.snapshots?.abc?.template.fields[0]?.label).toBe(
+      "Applicant Local Only",
+    );
+  });
+
+  it("exports the current workspace and remembers the chosen file name", async () => {
+    const workspaceRef = createWorkspaceRef();
+    exportRecipeToFile.mockResolvedValue({
+      fileName: "custom-export.recipe.json",
+      method: "download",
+    });
+
+    const { result } = renderHook(() =>
+      useAnnotationWorkflows({
+        pdfPath: "/tmp/sample.pdf",
+        useExistingRecipe: false,
+        workspaceRef,
+      }),
+    );
+
+    act(() => {
+      useAnnotationStore.getState().loadSession(sessionFixture);
+    });
+
+    await act(async () => {
+      await result.current.handleExportRecipe();
+    });
+
+    expect(exportRecipeToFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        suggestedFileName: "acord-125.recipe.json",
+      }),
+    );
+    const snapshotStore = JSON.parse(
+      window.localStorage.getItem("acord-ui-local-workspaces") ?? "{}",
+    ) as {
+      snapshots?: Record<string, { preferredRecipeFileName?: string | null }>;
+    };
+    expect(snapshotStore.snapshots?.abc?.preferredRecipeFileName).toBe(
+      "custom-export.recipe.json",
+    );
   });
 
   it("previews the active draft through workflow state", async () => {

@@ -1,5 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 import { SAMPLE_RECIPE_PATH } from "./lib/samplePaths";
@@ -17,15 +23,21 @@ vi.mock("./components/Sidebar", () => ({
 const requestPreview = vi.fn();
 const saveRecipe = vi.fn();
 const startSession = vi.fn();
+const uploadWorkspaceFile = vi.fn();
 
 vi.mock("./lib/api", () => ({
   buildPdfFileUrl: () => "http://127.0.0.1:8000/pdf/file?pdf_path=sample",
   requestPreview: (...args: unknown[]) => requestPreview(...args),
   saveRecipe: (...args: unknown[]) => saveRecipe(...args),
   startSession: (...args: unknown[]) => startSession(...args),
+  uploadWorkspaceFile: (...args: unknown[]) => uploadWorkspaceFile(...args),
 }));
 
 describe("App", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     useAnnotationStore.getState().reset();
     useUiSettings.setState({
@@ -41,6 +53,7 @@ describe("App", () => {
     requestPreview.mockReset();
     saveRecipe.mockReset();
     startSession.mockReset();
+    uploadWorkspaceFile.mockReset();
   });
 
   it("loads a session and renders the field list", async () => {
@@ -147,6 +160,7 @@ describe("App", () => {
 
     render(<App />);
 
+    fireEvent.click(screen.getByText(/^Workspace$/));
     fireEvent.click(
       screen.getAllByRole("checkbox", { name: /use recipe on load/i })[0],
     );
@@ -158,6 +172,58 @@ describe("App", () => {
     expect(startSession).toHaveBeenCalledWith(
       expect.objectContaining({
         recipePath: SAMPLE_RECIPE_PATH,
+      }),
+    );
+  });
+
+  it("uploads a chosen PDF and loads it immediately", async () => {
+    uploadWorkspaceFile.mockResolvedValue({
+      original_name: "sample.pdf",
+      stored_path: "/tmp/uploaded-sample.pdf",
+      file_kind: "pdf",
+    });
+    startSession.mockResolvedValue({
+      pdf_path: "/tmp/uploaded-sample.pdf",
+      recipe_path: null,
+      pdf_info: {
+        page_count: 1,
+        pages: [{ page: 1, width: 612, height: 792, rotation: 0 }],
+        metadata: { sha256: "abc" },
+      },
+      template: {
+        schema_version: "1.0",
+        form_id: "ACORD_125",
+        template_state: "draft",
+        template_version: "v1",
+        page_rotations: [0],
+        page_sizes: [[612, 792]],
+        informational_pdf_metadata: { sha256: "abc" },
+        anchor_text: [],
+        anchors: [],
+        fields: [],
+      },
+    });
+    requestPreview.mockResolvedValue([]);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByText(/^Workspace$/));
+    const pdfInput = screen.getByLabelText(/choose pdf from computer/i);
+    const file = new File(["%PDF-1.4"], "sample.pdf", {
+      type: "application/pdf",
+    });
+
+    fireEvent.change(pdfInput, {
+      target: {
+        files: [file],
+      },
+    });
+
+    await waitFor(() => expect(uploadWorkspaceFile).toHaveBeenCalled());
+    await waitFor(() => expect(startSession).toHaveBeenCalled());
+    expect(startSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pdfPath: "/tmp/uploaded-sample.pdf",
       }),
     );
   });

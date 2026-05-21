@@ -131,6 +131,24 @@ export interface SessionStartResponse {
   template: FormTemplate;
 }
 
+export interface FileBrowserEntry {
+  name: string;
+  path: string;
+  entry_type: "directory" | "file";
+}
+
+export interface FileBrowserResponse {
+  current_path: string;
+  parent_path?: string | null;
+  entries: FileBrowserEntry[];
+}
+
+export interface UploadedWorkspaceFile {
+  original_name: string;
+  stored_path: string;
+  file_kind: "pdf" | "recipe";
+}
+
 export interface ExtractionField {
   field_id: string;
   field_name: string;

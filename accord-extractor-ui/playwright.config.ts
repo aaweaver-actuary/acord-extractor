@@ -1,7 +1,9 @@
+import process from "node:process";
+
 import { defineConfig, devices } from "@playwright/test";
 
 const backendHost = process.env.PW_BACKEND_HOST ?? "127.0.0.1";
-const backendPort = Number(process.env.PW_BACKEND_PORT ?? "8000");
+const backendPort = Number(process.env.PW_BACKEND_PORT ?? "8009");
 const frontendHost = process.env.PW_FRONTEND_HOST ?? "127.0.0.1";
 const frontendPort = Number(process.env.PW_FRONTEND_PORT ?? "4173");
 const apiBaseUrl =
@@ -35,7 +37,8 @@ export default defineConfig({
       command: `npm run dev -- --host ${frontendHost} --port ${frontendPort}`,
       env: {
         ...process.env,
-        VITE_API_BASE_URL: apiBaseUrl,
+        VITE_API_BASE_URL: "/api",
+        VITE_DEV_API_TARGET: apiBaseUrl,
       },
       url: frontendBaseUrl,
       reuseExistingServer: true,

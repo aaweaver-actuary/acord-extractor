@@ -13,11 +13,13 @@ import { cloneField } from "../lib/template";
 interface AnnotationOperationState {
   isLoadingSession: boolean;
   isSavingDraft: boolean;
+  isExportingRecipe: boolean;
   isRefreshingPreviews: boolean;
   isPreviewingDraft: boolean;
 }
 
 interface AnnotationState {
+  currentPdfPath: string | null;
   template: FormTemplate | null;
   pdfInfo: PdfDocumentInfo | null;
   savedFields: FieldTemplate[];
@@ -48,11 +50,13 @@ interface AnnotationState {
 const initialOperationState: AnnotationOperationState = {
   isLoadingSession: false,
   isSavingDraft: false,
+  isExportingRecipe: false,
   isRefreshingPreviews: false,
   isPreviewingDraft: false,
 };
 
 const initialState = {
+  currentPdfPath: null,
   template: null,
   pdfInfo: null,
   savedFields: [],
@@ -71,6 +75,7 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
   ...initialState,
   loadSession: (session) =>
     set({
+      currentPdfPath: session.pdf_path,
       template: session.template,
       pdfInfo: session.pdf_info,
       savedFields: session.template.fields,
@@ -84,6 +89,7 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
     }),
   applySavedTemplate: (template) =>
     set((state) => ({
+      currentPdfPath: state.currentPdfPath,
       template,
       savedFields: template.fields,
       previewByFieldId: {},

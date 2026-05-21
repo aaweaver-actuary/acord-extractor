@@ -5,6 +5,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { Rect, Stage, Layer, Transformer } from "react-konva";
 import { Document, Page } from "react-pdf";
 
+import { debugError, debugLog } from "../lib/debugLogger";
 import {
   normalizeViewportRect,
   pdfBboxToViewportRect,
@@ -42,6 +43,32 @@ function fieldColor(fieldType: FieldTemplate["field_type"]): string {
   }
 }
 
+function getScrollFrameMetrics(element: HTMLDivElement | null) {
+  if (!element) {
+    return {
+      clientHeight: null,
+      clientWidth: null,
+      hasHorizontalOverflow: null,
+      hasVerticalOverflow: null,
+      offsetHeight: null,
+      offsetWidth: null,
+      scrollHeight: null,
+      scrollWidth: null,
+    };
+  }
+
+  return {
+    clientHeight: element.clientHeight,
+    clientWidth: element.clientWidth,
+    hasHorizontalOverflow: element.scrollWidth > element.clientWidth,
+    hasVerticalOverflow: element.scrollHeight > element.clientHeight,
+    offsetHeight: element.offsetHeight,
+    offsetWidth: element.offsetWidth,
+    scrollHeight: element.scrollHeight,
+    scrollWidth: element.scrollWidth,
+  };
+}
+
 export function ViewerPane(props: ViewerPaneProps) {
   const currentPage = useAnnotationStore((state) => state.currentPage);
   const draftField = useAnnotationStore((state) => state.draftField);
@@ -56,14 +83,62 @@ export function ViewerPane(props: ViewerPaneProps) {
   const zoom = useAnnotationStore((state) => state.zoom);
   const visibleSavedFields = useVisibleSavedFields();
   const currentPageSize = useCurrentPageSize();
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollFrameRef = useRef<HTMLDivElement | null>(null);
   const draftRectRef = useRef<Konva.Rect | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
+  const zoomSnapshotKeyRef = useRef<string | null>(null);
   const [availableWidth, setAvailableWidth] = useState(720);
   const [viewport, setViewport] = useState<ViewportLike | null>(null);
 
   useEffect(() => {
-    const element = containerRef.current;
+    debugLog("viewer", "mounted", { pdfUrl: props.pdfUrl });
+
+    return () => {
+      debugLog("viewer", "unmounted", { pdfUrl: props.pdfUrl });
+    };
+  }, [props.pdfUrl]);
+
+  useEffect(() => {
+    const snapshotKey = JSON.stringify({
+      currentPage,
+      currentPageHeight: currentPageSize?.height ?? null,
+      currentPageRotation: currentPageSize?.rotation ?? null,
+      currentPageWidth: currentPageSize?.width ?? null,
+      pdfUrl: props.pdfUrl,
+      zoom,
+    });
+
+    if (zoomSnapshotKeyRef.current === snapshotKey) {
+      return;
+    }
+
+    zoomSnapshotKeyRef.current = snapshotKey;
+
+    debugLog("viewer", "zoom snapshot", {
+      availableWidth,
+      currentPage,
+      currentPageHeight: currentPageSize?.height ?? null,
+      currentPageRotation: currentPageSize?.rotation ?? null,
+      currentPageWidth: currentPageSize?.width ?? null,
+      hasViewport: Boolean(viewport),
+      pdfUrl: props.pdfUrl,
+      renderWidth: availableWidth * zoom,
+      ...getScrollFrameMetrics(scrollFrameRef.current),
+      viewportHeight: viewport?.height ?? null,
+      viewportWidth: viewport?.width ?? null,
+      zoom,
+    });
+  }, [
+    availableWidth,
+    currentPage,
+    currentPageSize,
+    props.pdfUrl,
+    viewport,
+    zoom,
+  ]);
+
+  useEffect(() => {
+    const element = scrollFrameRef.current;
     if (!element) {
       return undefined;
     }
@@ -73,7 +148,31 @@ export function ViewerPane(props: ViewerPaneProps) {
       if (!entry) {
         return;
       }
-      setAvailableWidth(Math.max(360, entry.contentRect.width - 32));
+      const nextWidth = Math.max(360, Math.round(entry.contentRect.width));
+      setAvailableWidth((currentWidth) => {
+        if (currentWidth === nextWidth) {
+          return currentWidth;
+        }
+
+        const currentZoom = useAnnotationStore.getState().zoom;
+
+        debugLog(
+          "viewer",
+          "frame width changed",
+          {
+            contentRectWidth: Math.round(entry.contentRect.width),
+            currentPage: useAnnotationStore.getState().currentPage,
+            nextWidth,
+            previousWidth: currentWidth,
+            renderWidth: nextWidth * currentZoom,
+            ...getScrollFrameMetrics(element),
+            zoom: currentZoom,
+          },
+          { maxOccurrences: 6 },
+        );
+
+        return nextWidth;
+      });
     });
 
     observer.observe(element);
@@ -135,6 +234,25 @@ export function ViewerPane(props: ViewerPaneProps) {
     const baseViewport = page.getViewport({ scale: 1, rotation: page.rotate });
     const scale = renderWidth / baseViewport.width;
     const scaledViewport = page.getViewport({ scale, rotation: page.rotate });
+
+    debugLog(
+      "viewer",
+      "page load success",
+      {
+        baseHeight: baseViewport.height,
+        baseWidth: baseViewport.width,
+        currentPage,
+        pdfUrl: props.pdfUrl,
+        renderWidth,
+        rotation: page.rotate,
+        scaledHeight: scaledViewport.height,
+        scaledWidth: scaledViewport.width,
+        ...getScrollFrameMetrics(scrollFrameRef.current),
+        zoom,
+      },
+      { maxOccurrences: 4 },
+    );
+
     setViewport({
       width: scaledViewport.width,
       height: scaledViewport.height,
@@ -218,17 +336,68 @@ export function ViewerPane(props: ViewerPaneProps) {
 
   return (
     <section className="viewer-pane">
-      <div className="viewer-scroll" ref={containerRef}>
+      <div className="viewer-scroll" ref={scrollFrameRef}>
         <div className="viewer-canvas">
           <Document
             file={props.pdfUrl}
             loading={<div className="viewer-state">Loading PDF…</div>}
+            onLoadError={(error) => {
+              debugError("viewer", "document load failed", error, {
+                pdfUrl: props.pdfUrl,
+              });
+            }}
+            onLoadSuccess={(pdf) => {
+              debugLog(
+                "viewer",
+                "document load success",
+                {
+                  numPages: pdf.numPages,
+                  pdfUrl: props.pdfUrl,
+                },
+                { maxOccurrences: 1 },
+              );
+            }}
+            onSourceError={(error) => {
+              debugError("viewer", "document source failed", error, {
+                pdfUrl: props.pdfUrl,
+              });
+            }}
+            onSourceSuccess={() => {
+              debugLog(
+                "viewer",
+                "document source resolved",
+                {
+                  pdfUrl: props.pdfUrl,
+                },
+                { maxOccurrences: 1 },
+              );
+            }}
           >
             <div className="page-stack">
               <Page
-                key={`${currentPage}-${renderWidth}`}
                 pageNumber={currentPage}
                 width={renderWidth}
+                onRenderError={(error) => {
+                  debugError("viewer", "page render failed", error, {
+                    currentPage,
+                    pdfUrl: props.pdfUrl,
+                    renderWidth,
+                  });
+                }}
+                onRenderSuccess={() => {
+                  debugLog(
+                    "viewer",
+                    "page render success",
+                    {
+                      currentPage,
+                      pdfUrl: props.pdfUrl,
+                      renderWidth,
+                      ...getScrollFrameMetrics(scrollFrameRef.current),
+                      zoom,
+                    },
+                    { maxOccurrences: 4 },
+                  );
+                }}
                 renderAnnotationLayer={false}
                 renderTextLayer={false}
                 onLoadSuccess={handlePageLoadSuccess}
@@ -342,10 +511,15 @@ export function ViewerPane(props: ViewerPaneProps) {
                           rotateEnabled={false}
                           enabledAnchors={[
                             "top-left",
+                            "top-center",
                             "top-right",
+                            "middle-left",
+                            "middle-right",
                             "bottom-left",
+                            "bottom-center",
                             "bottom-right",
                           ]}
+                          keepRatio={false}
                           boundBoxFunc={(oldBox, newBox) => {
                             if (newBox.width < 12 || newBox.height < 12) {
                               return oldBox;

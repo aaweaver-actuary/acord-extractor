@@ -61,6 +61,7 @@ describe("useAnnotationStore", () => {
     useAnnotationStore.getState().loadSession(sessionFixture);
 
     const state = useAnnotationStore.getState();
+    expect(state.currentPdfPath).toBe("/tmp/sample.pdf");
     expect(state.pdfInfo?.page_count).toBe(2);
     expect(state.savedFields).toHaveLength(1);
     expect(state.currentPage).toBe(1);

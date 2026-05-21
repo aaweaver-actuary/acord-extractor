@@ -107,7 +107,7 @@ def test_preview_template_returns_saved_sample_field() -> None:
     previews = preview_template(SAMPLE_PDF, load_recipe(SAMPLE_RECIPE))
 
     assert len(previews) == 1
-    assert previews[0].field_name == "has_business_auto"
+    assert previews[0].field_name == "field_1_01"
     assert previews[0].status == "ok"
     assert previews[0].normalized_text is True
 
@@ -248,7 +248,7 @@ def test_extract_pdf_returns_saved_sample_value() -> None:
     result = extract_pdf(SAMPLE_PDF, load_recipe(SAMPLE_RECIPE))
 
     assert len(result.fields) == 1
-    assert result.fields[0].field_name == "has_business_auto"
+    assert result.fields[0].field_name == "field_1_01"
     assert result.fields[0].value is True
 
 
@@ -362,6 +362,72 @@ def test_api_returns_404_and_400_for_invalid_inputs() -> None:
         "/pdf/pages/99/image", params={"pdf_path": str(SAMPLE_PDF)}
     )
     assert missing_page.status_code == 404
+
+
+def test_api_filesystem_list_filters_pdf_and_recipe_entries() -> None:
+    client = TestClient(api_app)
+
+    pdf_response = client.get(
+        "/filesystem/list",
+        params={"path": str(SAMPLE_PDF.parent), "extensions": ".pdf"},
+    )
+    assert pdf_response.status_code == 200
+    assert pdf_response.json()["current_path"] == str(SAMPLE_PDF.parent)
+    assert any(
+        entry["name"] == SAMPLE_PDF.name and entry["entry_type"] == "file"
+        for entry in pdf_response.json()["entries"]
+    )
+
+    recipe_response = client.get(
+        "/filesystem/list",
+        params={"path": str(SAMPLE_RECIPE.parent), "extensions": ".json"},
+    )
+    assert recipe_response.status_code == 200
+    assert any(
+        entry["name"] == SAMPLE_RECIPE.name and entry["entry_type"] == "file"
+        for entry in recipe_response.json()["entries"]
+    )
+
+
+def test_api_uploads_pdf_and_recipe_files_to_temp_workspace() -> None:
+    client = TestClient(api_app)
+
+    pdf_upload = client.post(
+        "/filesystem/upload?file_kind=pdf",
+        files={"file": ("sample.pdf", b"%PDF-1.4\n", "application/pdf")},
+    )
+    assert pdf_upload.status_code == 200
+    pdf_path = Path(pdf_upload.json()["stored_path"])
+    assert pdf_upload.json()["file_kind"] == "pdf"
+    assert pdf_path.exists()
+    assert pdf_path.read_bytes() == b"%PDF-1.4\n"
+
+    recipe_upload = client.post(
+        "/filesystem/upload?file_kind=recipe",
+        files={
+            "file": (
+                "sample.recipe.json",
+                b'{"schema_version":"1.0","form_id":"ACORD_125","template_state":"draft","template_version":"v1","page_rotations":[],"page_sizes":[],"informational_pdf_metadata":{},"anchor_text":[],"anchors":[],"fields":[]}',
+                "application/json",
+            )
+        },
+    )
+    assert recipe_upload.status_code == 200
+    recipe_path = Path(recipe_upload.json()["stored_path"])
+    assert recipe_upload.json()["file_kind"] == "recipe"
+    assert recipe_path.exists()
+
+
+def test_api_upload_rejects_wrong_extension_for_kind() -> None:
+    client = TestClient(api_app)
+
+    response = client.post(
+        "/filesystem/upload?file_kind=pdf",
+        files={"file": ("sample.json", b"{}", "application/json")},
+    )
+
+    assert response.status_code == 400
+    assert ".pdf" in response.json()["detail"]
 
 
 def test_session_start_without_recipe_returns_empty_draft_template() -> None:

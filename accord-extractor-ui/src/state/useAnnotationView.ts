@@ -2,7 +2,6 @@ import { useMemo } from "react";
 
 import type { FieldPreview, FieldTemplate, PdfPageInfo } from "../types";
 import { useAnnotationStore } from "./useAnnotationStore";
-import { useUiSettings } from "./useUiSettings";
 
 export function useSortedFieldList(): FieldTemplate[] {
   const savedFields = useAnnotationStore((state) => state.savedFields);
@@ -55,9 +54,8 @@ export function useCurrentPageSize(): PdfPageInfo | undefined {
 
 export function useCanSaveDraft(): boolean {
   const draftField = useAnnotationStore((state) => state.draftField);
-  const recipePath = useUiSettings((state) => state.recipePath);
 
-  return Boolean(draftField && recipePath.trim());
+  return Boolean(draftField);
 }
 
 export function useHasLoadedDocument(): boolean {

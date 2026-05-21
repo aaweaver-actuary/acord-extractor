@@ -11,15 +11,15 @@ The repository now includes a working backend MVP for the bundled ACORD 125 samp
 - Preview, extraction, template validation, and debug overlay export
 - FastAPI web surface and Typer CLI for the same core workflows
 - A browser annotator UI in `accord-extractor-ui` built with `react-pdf`, `react-konva`, Zustand, React Hook Form, and Zod
-- A validated sample recipe at `data/sample/acord-125.recipe.json`
-- End-to-end coverage proving save, reload, preview, validate, extract, and overlay export for 12 target fields on the sample PDF
+- A draft sample recipe at `data/sample/acord-125.recipe.json`
+- End-to-end coverage proving save, reload, preview, validate, extract, and overlay export for the bundled sample PDF
 
 ## Sample fixture
 
 - PDF: `data/sample/acord-125.pdf`
 - Canonical recipe: `data/sample/acord-125.recipe.json`
 
-The sample recipe targets 12 stable embedded-text regions on page 2 and includes a validated anchor for `ACORD 125 (2011/09)`.
+The sample recipe is intentionally minimal and repo-relative so the UI can boot against the bundled sample PDF without machine-specific paths.
 
 ## CLI
 
@@ -31,7 +31,7 @@ acord-extractor extract --pdf data/sample/acord-125.pdf --recipe data/sample/aco
 acord-extractor validate-template --pdf data/sample/acord-125.pdf --recipe data/sample/acord-125.recipe.json
 acord-extractor export-debug-overlay --pdf data/sample/acord-125.pdf --recipe data/sample/acord-125.recipe.json --output out/debug-overlay.pdf
 acord-extractor save-recipe --recipe data/sample/acord-125.recipe.json --output out/saved.recipe.json
-acord-extractor serve-api --host 127.0.0.1 --port 8000
+acord-extractor serve-api --host 127.0.0.1 --port 8009
 ```
 
 ## Browser UI
@@ -39,7 +39,7 @@ acord-extractor serve-api --host 127.0.0.1 --port 8000
 Start the backend API in one terminal:
 
 ```bash
-acord-extractor serve-api --host 127.0.0.1 --port 8000
+acord-extractor serve-api --host 127.0.0.1 --port 8009
 ```
 
 Start the frontend in another terminal:
@@ -67,6 +67,7 @@ Run `acord-extractor serve-api`, then use the FastAPI docs at `/docs`.
 Implemented endpoints:
 
 - `GET /health`
+- `GET /filesystem/list?path=...&extensions=.pdf,.json`
 - `GET /pdf/file?pdf_path=...`
 - `GET /pdf/metadata?pdf_path=...`
 - `GET /pdf/pages/{page_number}/image?pdf_path=...&scale=...`
