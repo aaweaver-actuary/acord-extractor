@@ -34,9 +34,14 @@ type FieldFormValues = z.infer<typeof fieldFormSchema>;
 
 interface SidebarProps {
   draftField: FieldTemplate | null;
+  fieldList: FieldTemplate[];
+  hasLoadedDocument: boolean;
+  previewByFieldId: Record<string, FieldPreview>;
+  selectedFieldId: string | null;
   selectedPreview: FieldPreview | null;
   isSaving: boolean;
   saveEnabled: boolean;
+  onSelectField: (field: FieldTemplate) => void;
   onDraftChange: (field: FieldTemplate) => void;
   onSaveDraft: () => Promise<void>;
   onCancelDraft: () => void;
@@ -55,14 +60,36 @@ function toFormValues(field: FieldTemplate): FieldFormValues {
   };
 }
 
+function formValuesEqual(
+  left: FieldFormValues | undefined,
+  right: FieldFormValues,
+): boolean {
+  return (
+    !!left &&
+    left.name === right.name &&
+    left.label === right.label &&
+    left.field_type === right.field_type &&
+    left.extraction_method === right.extraction_method &&
+    left.paddingTop === right.paddingTop &&
+    left.paddingRight === right.paddingRight &&
+    left.paddingBottom === right.paddingBottom &&
+    left.paddingLeft === right.paddingLeft
+  );
+}
+
 export function Sidebar(props: SidebarProps) {
   const {
     draftField,
+    fieldList,
+    hasLoadedDocument,
     isSaving,
     onCancelDraft,
     onDraftChange,
     onSaveDraft,
+    onSelectField,
+    previewByFieldId,
     saveEnabled,
+    selectedFieldId,
     selectedPreview,
   } = props;
 
@@ -76,13 +103,18 @@ export function Sidebar(props: SidebarProps) {
     if (!draftField) {
       return;
     }
-    form.reset(toFormValues(draftField));
+    const nextValues = toFormValues(draftField);
+    if (formValuesEqual(form.getValues(), nextValues)) {
+      return;
+    }
+    form.reset(nextValues);
   }, [draftField, form]);
 
   const watchedValues = useWatch({ control: form.control });
+  const isFormDirty = form.formState.isDirty;
 
   useEffect(() => {
-    if (!draftField) {
+    if (!draftField || !isFormDirty) {
       return;
     }
     const parsed = fieldFormSchema.safeParse(watchedValues);
@@ -118,7 +150,7 @@ export function Sidebar(props: SidebarProps) {
     }
 
     onDraftChange(nextField);
-  }, [draftField, onDraftChange, watchedValues]);
+  }, [draftField, isFormDirty, onDraftChange, watchedValues]);
 
   const previewText = useMemo(() => {
     if (!selectedPreview) {
@@ -148,14 +180,56 @@ export function Sidebar(props: SidebarProps) {
 
   if (!draftField) {
     return (
-      <aside className="sidebar-pane empty-pane">
-        <div className="panel-card panel-intro">
-          <p className="eyebrow">Sidebar</p>
-          <h2>Draw or select a field</h2>
-          <p>
-            Drag a box on the PDF to create a draft field, or select an existing
-            annotation from the viewer or field list to edit it in place.
+      <aside className="sidebar-pane">
+        <div className="panel-card sidebar-list-card">
+          <p className="eyebrow">Field list</p>
+          <h2>
+            {hasLoadedDocument ? "Saved annotations" : "Ready when you are"}
+          </h2>
+          <p className="preview-copy sidebar-copy">
+            {hasLoadedDocument
+              ? "Draw a box on the PDF to create a new draft, or pick an existing field to edit it."
+              : "Load a PDF to start annotating. Once a field is active, this panel turns into the annotator."}
           </p>
+
+          <ul className="field-list">
+            {fieldList.length ? (
+              fieldList.map((field) => {
+                const preview = previewByFieldId[field.id];
+                return (
+                  <li key={field.id}>
+                    <button
+                      type="button"
+                      className={
+                        field.id === selectedFieldId
+                          ? "field-row field-row-active"
+                          : "field-row"
+                      }
+                      onClick={() => onSelectField(field)}
+                    >
+                      <span>
+                        <strong>{field.label ?? field.name}</strong>
+                        <small>
+                          Page {field.page} · {field.name}
+                        </small>
+                      </span>
+                      <span
+                        className={`status-pill status-${preview?.status ?? "empty"}`}
+                      >
+                        {preview?.status ?? "idle"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })
+            ) : (
+              <li className="field-list-empty">
+                {hasLoadedDocument
+                  ? "No saved annotations yet. Draw the first box on the PDF to begin."
+                  : "No document loaded yet."}
+              </li>
+            )}
+          </ul>
         </div>
       </aside>
     );
@@ -164,8 +238,19 @@ export function Sidebar(props: SidebarProps) {
   return (
     <aside className="sidebar-pane">
       <div className="panel-card">
-        <p className="eyebrow">Draft field</p>
-        <h2>{draftField.label ?? draftField.name}</h2>
+        <div className="sidebar-editor-header">
+          <div>
+            <p className="eyebrow">Field annotator</p>
+            <h2>{draftField.label ?? draftField.name}</h2>
+          </div>
+          <button
+            type="button"
+            className="ghost-button sidebar-back-button"
+            onClick={onCancelDraft}
+          >
+            Field list
+          </button>
+        </div>
         <p className="meta-line">
           Page {draftField.page} · ID {draftField.id}
         </p>

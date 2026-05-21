@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 import { useAnnotationStore } from "./state/useAnnotationStore";
+import { useUiSettings } from "./state/useUiSettings";
 
 vi.mock("./components/ViewerPane", () => ({
   ViewerPane: () => <div data-testid="viewer-pane">viewer pane</div>,
@@ -26,6 +27,17 @@ vi.mock("./lib/api", () => ({
 describe("App", () => {
   beforeEach(() => {
     useAnnotationStore.getState().reset();
+    useUiSettings.setState({
+      apiBaseUrl: "http://127.0.0.1:8000",
+      recipePath:
+        "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json",
+    });
+    try {
+      window.localStorage?.clear?.();
+    } catch {
+      // Vitest may not expose persistent localStorage in every runtime mode.
+    }
+    Element.prototype.scrollIntoView = vi.fn();
     requestPreview.mockReset();
     saveRecipe.mockReset();
     startSession.mockReset();
@@ -95,12 +107,59 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /load workspace/i }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /load workspace/i })[0],
+    );
 
-    await waitFor(() =>
-      expect(screen.getByText("Applicant Name")).toBeInTheDocument(),
+    await waitFor(() => expect(startSession).toHaveBeenCalled());
+    expect(startSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipePath: undefined,
+      }),
     );
     expect(screen.getByTestId("viewer-pane")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar-pane")).toBeInTheDocument();
+  });
+
+  it("opts into loading an existing recipe only when toggled on", async () => {
+    startSession.mockResolvedValue({
+      pdf_path: "/tmp/sample.pdf",
+      recipe_path: "/tmp/sample.recipe.json",
+      pdf_info: {
+        page_count: 1,
+        pages: [{ page: 1, width: 612, height: 792, rotation: 0 }],
+        metadata: { sha256: "abc" },
+      },
+      template: {
+        schema_version: "1.0",
+        form_id: "ACORD_125",
+        template_state: "draft",
+        template_version: "v1",
+        page_rotations: [0],
+        page_sizes: [[612, 792]],
+        informational_pdf_metadata: { sha256: "abc" },
+        anchor_text: [],
+        anchors: [],
+        fields: [],
+      },
+    });
+    requestPreview.mockResolvedValue([]);
+
+    render(<App />);
+
+    fireEvent.click(
+      screen.getAllByRole("checkbox", { name: /use recipe on load/i })[0],
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /load workspace/i })[0],
+    );
+
+    await waitFor(() => expect(startSession).toHaveBeenCalled());
+    expect(startSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipePath:
+          "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json",
+      }),
+    );
   });
 });

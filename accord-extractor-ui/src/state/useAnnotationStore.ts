@@ -22,6 +22,7 @@ interface AnnotationState {
   currentPage: number;
   zoom: number;
   loadSession: (session: SessionStartResponse) => void;
+  applySavedTemplate: (template: FormTemplate) => void;
   setCurrentPage: (page: number) => void;
   setZoom: (zoom: number) => void;
   setTransientRect: (rect: ViewportRect | null) => void;
@@ -60,6 +61,18 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
       currentPage: 1,
       zoom: 1,
     }),
+  applySavedTemplate: (template) =>
+    set((state) => ({
+      template,
+      savedFields: template.fields,
+      previewByFieldId: {},
+      draftPreview: null,
+      transientRect: null,
+      draftField: null,
+      selectedFieldId: null,
+      currentPage: state.currentPage,
+      zoom: state.zoom,
+    })),
   setCurrentPage: (page) => set({ currentPage: page }),
   setZoom: (zoom) => set({ zoom }),
   setTransientRect: (rect) => set({ transientRect: rect }),

@@ -51,20 +51,19 @@ select {
 
 .app-shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 18px 20px 24px;
 }
 
-.topbar,
+.navbar-shell,
 .workspace-grid {
   width: min(1440px, 100%);
   margin: 0 auto;
 }
 
-.topbar {
+.navbar-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  gap: 24px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 h1,
@@ -119,10 +118,6 @@ p {
 .field-form {
   display: grid;
   gap: 14px;
-}
-
-.session-form {
-  padding: 22px;
 }
 
 label {
@@ -207,34 +202,140 @@ select:focus {
   transform: none;
 }
 
+.navbar-bar,
+.navbar-form {
+  padding: 18px 20px;
+}
+
+.navbar-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.navbar-title {
+  font-size: clamp(2rem, 3.4vw, 3rem);
+  margin-bottom: 8px;
+}
+
+.navbar-subtitle {
+  max-width: 48rem;
+}
+
+.navbar-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.nav-menu {
+  position: relative;
+}
+
+.nav-menu > summary {
+  list-style: none;
+  border-radius: 999px;
+  padding: 11px 18px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(71, 57, 37, 0.12);
+  cursor: pointer;
+  user-select: none;
+}
+
+.nav-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-menu[open] > summary {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.nav-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  min-width: min(26rem, 85vw);
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  z-index: 5;
+}
+
+.nav-view-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.nav-view-row-wrap {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.nav-geometry {
+  min-width: 14rem;
+}
+
+.nav-settings-copy,
+.navbar-help,
+.sidebar-copy {
+  color: var(--ink-soft);
+}
+
+.navbar-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) auto;
+  gap: 14px 16px;
+  align-items: end;
+}
+
+.navbar-field {
+  min-width: 0;
+}
+
+.navbar-field-wide {
+  grid-column: span 1;
+}
+
+.navbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 24px;
+}
+
+.navbar-checkbox input {
+  width: auto;
+  margin: 0;
+}
+
+.navbar-help {
+  grid-column: 1 / -2;
+  font-size: 0.92rem;
+}
+
+.navbar-submit-row {
+  justify-content: flex-end;
+}
+
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.62fr);
+  gap: 18px;
+  scroll-margin-top: 18px;
 }
 
 .workspace-main,
 .workspace-sidebar {
   display: grid;
-  gap: 18px;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 18px 20px;
-}
-
-.toolbar-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-}
-
-.toolbar-metadata {
-  justify-content: flex-end;
+  gap: 14px;
 }
 
 .page-label {
@@ -248,7 +349,7 @@ select:focus {
 }
 
 .viewer-pane {
-  min-height: 72vh;
+  min-height: 78vh;
 }
 
 .viewer-scroll {
@@ -286,9 +387,27 @@ select:focus {
   padding: 28px;
 }
 
-.field-list-panel,
 .sidebar-pane {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+}
+
+.sidebar-list-card,
+.sidebar-pane > .panel-card,
+.preview-panel {
   padding: 20px;
+}
+
+.sidebar-editor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.sidebar-back-button {
+  white-space: nowrap;
 }
 
 .field-list {
@@ -401,31 +520,73 @@ code {
 }
 
 @media (max-width: 1120px) {
-  .topbar,
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .navbar-bar,
+  .navbar-form {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .navbar-menu-row {
+    justify-content: flex-start;
+  }
+
+  .nav-menu-panel {
+    left: 0;
+    right: auto;
+  }
+
+  .navbar-checkbox {
+    padding-top: 0;
+  }
+
+  .navbar-help {
+    grid-column: auto;
+  }
+
+  .navbar-submit-row {
+    justify-content: flex-start;
   }
 
   .workspace-grid {
     gap: 16px;
   }
 
-  .toolbar {
-    flex-direction: column;
-  }
-
-  .toolbar-metadata {
-    justify-content: flex-start;
+  .sidebar-pane {
+    position: static;
   }
 }
 
 @media (max-width: 720px) {
   .app-shell {
-    padding: 14px;
+    padding: 12px;
   }
 
   .form-grid,
-  .padding-grid {
+  .padding-grid,
+  .nav-view-row {
     grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .navbar-title {
+    font-size: 1.8rem;
+  }
+
+  .nav-menu {
+    width: 100%;
+  }
+
+  .nav-menu > summary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .nav-menu-panel {
+    min-width: min(22rem, 92vw);
   }
 }

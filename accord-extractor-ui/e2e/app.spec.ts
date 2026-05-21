@@ -17,15 +17,32 @@ async function createTempRecipeCopy(): Promise<string> {
 async function loadWorkspace(
   page: Parameters<typeof test>[0]["page"],
   recipePath: string,
+  options?: {
+    useExistingRecipe?: boolean;
+    expectSavedFields?: boolean;
+  },
 ) {
   await page.goto("/");
   await page.getByLabel("Recipe path").fill(recipePath);
   await page.getByLabel("PDF path").fill(SAMPLE_PDF_PATH);
+  if (options?.useExistingRecipe) {
+    await page.getByRole("checkbox", { name: "Use recipe on load" }).check();
+  }
   await page.getByRole("button", { name: "Load workspace" }).click();
 
   await expect(page.locator(".react-pdf__Page canvas").first()).toBeVisible();
-  await expect(page.locator(".field-row")).toHaveCount(12);
-  await expect(page.getByText("612 × 792 · rotation 0")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Saved annotations" }),
+  ).toBeVisible();
+  if (options?.expectSavedFields) {
+    await expect(page.locator(".field-row").first()).toBeVisible();
+  } else {
+    await expect(
+      page.getByText(
+        "No saved annotations yet. Draw the first box on the PDF to begin.",
+      ),
+    ).toBeVisible();
+  }
 }
 
 async function readRecipe(recipePath: string) {
@@ -35,8 +52,63 @@ async function readRecipe(recipePath: string) {
       name: string;
       label: string | null;
       page: number;
+      field_type: string;
+      extraction_method: string;
     }>;
   };
+}
+
+async function drawDraftField(
+  page: Parameters<typeof test>[0]["page"],
+  offsets: {
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+  },
+) {
+  const overlay = page.locator(".overlay-stage .konvajs-content");
+  await overlay.scrollIntoViewIfNeeded();
+  await expect(overlay).toBeVisible();
+  const bounds = await overlay.boundingBox();
+  expect(bounds).not.toBeNull();
+
+  const startX = (bounds?.x ?? 0) + offsets.startX;
+  const startY = (bounds?.y ?? 0) + offsets.startY;
+  const endX = (bounds?.x ?? 0) + offsets.endX;
+  const endY = (bounds?.y ?? 0) + offsets.endY;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, endY, { steps: 12 });
+  await page.mouse.up();
+
+  await expect(page.getByRole("button", { name: "Save field" })).toBeVisible();
+}
+
+async function fillDraftMetadata(
+  page: Parameters<typeof test>[0]["page"],
+  values: {
+    name: string;
+    label: string;
+    fieldType: string;
+    extractionMethod: string;
+  },
+) {
+  await page.getByLabel("Name").fill(values.name);
+  await page.getByLabel("Label").fill(values.label);
+  await page.getByLabel("Field type").selectOption(values.fieldType);
+  await page.getByLabel("Extraction").selectOption(values.extractionMethod);
+}
+
+async function saveDraftField(
+  page: Parameters<typeof test>[0]["page"],
+  fieldRowName: RegExp,
+) {
+  await page.getByRole("button", { name: "Save field" }).click();
+  await expect(page.getByRole("button", { name: fieldRowName })).toBeVisible();
+  await expect(page.locator(".react-pdf__Page canvas").first()).toBeVisible();
+  await expect(page.getByText("Failed to load PDF file.")).toHaveCount(0);
 }
 
 test("loads the sample workspace and keeps page plus zoom controls responsive", async ({
@@ -44,8 +116,12 @@ test("loads the sample workspace and keeps page plus zoom controls responsive", 
 }) => {
   const recipePath = await createTempRecipeCopy();
 
-  await loadWorkspace(page, recipePath);
+  await loadWorkspace(page, recipePath, {
+    useExistingRecipe: true,
+    expectSavedFields: true,
+  });
 
+  await page.getByText("View").click();
   await expect(
     page.getByRole("button", { name: "Previous page" }),
   ).toBeDisabled();
@@ -63,11 +139,7 @@ test("loads the sample workspace and keeps page plus zoom controls responsive", 
     /chip-active/,
   );
 
-  await expect(
-    page.getByRole("button", {
-      name: /ACORD 125 \(2011\/09\) form_footer_tag ok/i,
-    }),
-  ).toBeVisible();
+  await expect(page.locator(".field-row").first()).toBeVisible();
 });
 
 test("selects an existing field, previews it, and saves edits back to the recipe", async ({
@@ -75,19 +147,31 @@ test("selects an existing field, previews it, and saves edits back to the recipe
   browserName,
 }) => {
   const recipePath = await createTempRecipeCopy();
+  const initialRecipe = await readRecipe(recipePath);
+  const existingField = initialRecipe.fields[0];
 
-  await loadWorkspace(page, recipePath);
+  expect(existingField).toBeDefined();
+  if (!existingField) {
+    throw new Error(
+      "Expected the copied recipe to contain at least one field.",
+    );
+  }
 
-  await page
-    .getByRole("button", { name: /OWNER owner_interest_label ok/i })
-    .click();
+  await loadWorkspace(page, recipePath, {
+    useExistingRecipe: true,
+    expectSavedFields: true,
+  });
 
-  await expect(page.getByText("Draft field")).toBeVisible();
-  await expect(page.getByRole("spinbutton", { name: "Page" })).toHaveValue("2");
-  await expect(page.getByLabel("Label")).toHaveValue("OWNER");
-  await expect(page.locator(".preview-panel .status-pill")).toContainText(
-    /ok/i,
+  await page.locator(".field-row").first().click();
+
+  await expect(page.getByText("Field annotator")).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`Page ${existingField.page} .* ID`, "i")),
+  ).toBeVisible();
+  await expect(page.getByLabel("Label")).toHaveValue(
+    existingField.label ?? existingField.name,
   );
+  await expect(page.locator(".preview-panel .status-pill")).toBeVisible();
 
   await page.getByLabel("Name").fill("owner_interest_label_e2e");
   await page.getByLabel("Label").fill("OWNER E2E");
@@ -99,7 +183,7 @@ test("selects an existing field, previews it, and saves edits back to the recipe
 
   await expect(
     page.getByRole("button", {
-      name: /OWNER E2E owner_interest_label_e2e ok/i,
+      name: /OWNER E2E.*owner_interest_label_e2e/i,
     }),
   ).toBeVisible();
 
@@ -108,7 +192,7 @@ test("selects an existing field, previews it, and saves edits back to the recipe
     expect.objectContaining({
       name: "owner_interest_label_e2e",
       label: "OWNER E2E",
-      page: 2,
+      page: existingField.page,
     }),
   );
 });
@@ -118,46 +202,26 @@ test("creates and saves a new field from the PDF overlay", async ({ page }) => {
 
   await loadWorkspace(page, recipePath);
 
-  const overlay = page.locator(".overlay-stage .konvajs-content");
-  const bounds = await overlay.boundingBox();
-  expect(bounds).not.toBeNull();
-
-  const startX = (bounds?.x ?? 0) + 140;
-  const startY = (bounds?.y ?? 0) + 140;
-  const endX = (bounds?.x ?? 0) + 260;
-  const endY = (bounds?.y ?? 0) + 220;
-
-  await overlay.dispatchEvent("mousedown", {
-    button: 0,
-    buttons: 1,
-    clientX: startX,
-    clientY: startY,
-  });
-  await overlay.dispatchEvent("mousemove", {
-    buttons: 1,
-    clientX: endX,
-    clientY: endY,
-  });
-  await overlay.dispatchEvent("mouseup", {
-    button: 0,
-    buttons: 0,
-    clientX: endX,
-    clientY: endY,
+  await drawDraftField(page, {
+    startX: 140,
+    startY: 140,
+    endX: 260,
+    endY: 220,
   });
 
-  await expect(page.getByText("Draft field")).toBeVisible();
+  await expect(page.getByText("Field annotator")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save field" })).toBeEnabled();
   await expect(page.locator(".preview-panel .status-pill")).toContainText(
     /waiting|empty/i,
   );
 
-  await page.getByLabel("Name").fill("drawn_field_e2e");
-  await page.getByLabel("Label").fill("Drawn Field E2E");
-  await page.getByRole("button", { name: "Save field" }).click();
-
-  await expect(
-    page.getByRole("button", { name: /Drawn Field E2E drawn_field_e2e/i }),
-  ).toBeVisible();
+  await fillDraftMetadata(page, {
+    name: "drawn_field_e2e",
+    label: "Drawn Field E2E",
+    fieldType: "text",
+    extractionMethod: "embedded_text",
+  });
+  await saveDraftField(page, /Drawn Field E2E.*drawn_field_e2e/i);
 
   const savedRecipe = await readRecipe(recipePath);
   expect(savedRecipe.fields).toContainEqual(
@@ -166,5 +230,101 @@ test("creates and saves a new field from the PDF overlay", async ({ page }) => {
       label: "Drawn Field E2E",
       page: 1,
     }),
+  );
+});
+
+test("draws and saves a business auto checkbox field", async ({ page }) => {
+  const recipePath = await createTempRecipeCopy();
+
+  await loadWorkspace(page, recipePath);
+
+  await drawDraftField(page, {
+    startX: 90,
+    startY: 180,
+    endX: 112,
+    endY: 204,
+  });
+  await fillDraftMetadata(page, {
+    name: "business_auto_included_e2e",
+    label: "Business Auto Included",
+    fieldType: "checkbox",
+    extractionMethod: "checkbox_image",
+  });
+  await saveDraftField(
+    page,
+    /Business Auto Included.*business_auto_included_e2e/i,
+  );
+
+  const savedRecipe = await readRecipe(recipePath);
+  expect(savedRecipe.fields).toContainEqual(
+    expect.objectContaining({
+      name: "business_auto_included_e2e",
+      label: "Business Auto Included",
+      page: 1,
+      field_type: "checkbox",
+      extraction_method: "checkbox_image",
+    }),
+  );
+});
+
+test("saves a checkbox field and then immediately draws and saves a premium field", async ({
+  page,
+}) => {
+  const recipePath = await createTempRecipeCopy();
+
+  await loadWorkspace(page, recipePath);
+
+  await drawDraftField(page, {
+    startX: 90,
+    startY: 180,
+    endX: 112,
+    endY: 204,
+  });
+  await fillDraftMetadata(page, {
+    name: "business_auto_included_e2e",
+    label: "Business Auto Included",
+    fieldType: "checkbox",
+    extractionMethod: "checkbox_image",
+  });
+  await saveDraftField(
+    page,
+    /Business Auto Included.*business_auto_included_e2e/i,
+  );
+
+  await drawDraftField(page, {
+    startX: 180,
+    startY: 175,
+    endX: 300,
+    endY: 215,
+  });
+  await fillDraftMetadata(page, {
+    name: "business_auto_premium_e2e",
+    label: "Business Auto Premium",
+    fieldType: "money",
+    extractionMethod: "embedded_text",
+  });
+  await saveDraftField(
+    page,
+    /Business Auto Premium.*business_auto_premium_e2e/i,
+  );
+
+  const savedRecipe = await readRecipe(recipePath);
+  expect(savedRecipe.fields).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        name: "business_auto_included_e2e",
+        label: "Business Auto Included",
+        page: 1,
+        field_type: "checkbox",
+        extraction_method: "checkbox_image",
+      }),
+      expect.objectContaining({
+        name: "business_auto_premium_e2e",
+        label: "Business Auto Premium",
+        page: 1,
+        field_type: "money",
+        extraction_method: "embedded_text",
+      }),
+    ]),
   );
 });

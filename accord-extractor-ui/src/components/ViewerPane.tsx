@@ -46,6 +46,7 @@ function fieldColor(fieldType: FieldTemplate["field_type"]): string {
 }
 
 export function ViewerPane(props: ViewerPaneProps) {
+  const { currentPage, draftField, onCreateDraft } = props;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draftRectRef = useRef<Konva.Rect | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
@@ -77,7 +78,35 @@ export function ViewerPane(props: ViewerPaneProps) {
 
     transformerRef.current.nodes([draftRectRef.current]);
     transformerRef.current.getLayer()?.batchDraw();
-  }, [props.draftField, viewport]);
+  }, [draftField, viewport]);
+
+  useEffect(() => {
+    function handleCreateDraft(event: Event) {
+      if (draftField || !viewport) {
+        return;
+      }
+      const customEvent = event as CustomEvent<{
+        page?: number;
+        rect: ViewportRect;
+      }>;
+      if (!customEvent.detail?.rect) {
+        return;
+      }
+      if (
+        customEvent.detail.page !== undefined &&
+        customEvent.detail.page !== currentPage
+      ) {
+        return;
+      }
+
+      onCreateDraft(normalizeViewportRect(customEvent.detail.rect), viewport);
+    }
+
+    window.addEventListener("acord:create-draft", handleCreateDraft);
+    return () => {
+      window.removeEventListener("acord:create-draft", handleCreateDraft);
+    };
+  }, [currentPage, draftField, onCreateDraft, viewport]);
 
   const renderWidth = availableWidth * props.zoom;
 
@@ -105,8 +134,7 @@ export function ViewerPane(props: ViewerPaneProps) {
       return;
     }
     const stage = event.target.getStage();
-    const targetClassName = event.target.getClassName();
-    if (!stage || (event.target !== stage && targetClassName !== "Layer")) {
+    if (!stage) {
       return;
     }
     const pointer = stage.getPointerPosition();
