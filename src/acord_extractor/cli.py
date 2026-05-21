@@ -26,8 +26,12 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
-def _emit_json(value: Any) -> None:
-    typer.echo(json.dumps(_jsonable(value), indent=2))
+def _emit_json(value: Any, output: Path | None = None) -> None:
+    rendered = json.dumps(_jsonable(value), indent=2)
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(f"{rendered}\n")
+    typer.echo(rendered)
 
 
 @app.command("preview")
@@ -49,8 +53,9 @@ def preview_command(
 def extract_command(
     pdf: Path = typer.Option(..., exists=True, dir_okay=False),
     recipe: Path = typer.Option(..., exists=True, dir_okay=False),
+    output: Path | None = typer.Option(None, dir_okay=False),
 ) -> None:
-    _emit_json(extract_pdf(pdf, load_recipe(recipe)))
+    _emit_json(extract_pdf(pdf, load_recipe(recipe)), output)
 
 
 @app.command("validate-template")

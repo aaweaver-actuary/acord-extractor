@@ -12,20 +12,20 @@
   ],
   "page_sizes": [
     [
-      612.0,
-      792.0
+      612,
+      792
     ],
     [
-      612.0,
-      792.0
+      612,
+      792
     ],
     [
-      612.0,
-      792.0
+      612,
+      792
     ],
     [
-      612.0,
-      792.0
+      612,
+      792
     ]
   ],
   "informational_pdf_metadata": {
@@ -43,20 +43,20 @@
       "page": 1,
       "bbox": [
         18.186791473964476,
-        221.52304075619168,
+        558.9259315240447,
         31.658489587172017,
-        233.0740684759553
+        570.4769592438083
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "checkbox",
       "extraction_method": "checkbox_image",
@@ -75,20 +75,20 @@
       "page": 1,
       "bbox": [
         18.82830090792674,
-        234.35751600037338,
+        547.3749038042812,
         31.658489587172017,
-        244.6250961957188
+        557.6424839996266
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "checkbox",
       "extraction_method": "checkbox_image",
@@ -107,20 +107,20 @@
       "page": 1,
       "bbox": [
         18.82830090792674,
-        247.1919912445552,
+        534.5404285600994,
         31.658489587172017,
-        257.4595714399006
+        544.8080087554448
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "checkbox",
       "extraction_method": "checkbox_image",
@@ -139,20 +139,20 @@
       "page": 1,
       "bbox": [
         18.186791473964476,
-        258.7430189643188,
+        522.9894008403359,
         32.29999902113428,
-        269.01059915966414
+        533.2569810356812
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "checkbox",
       "extraction_method": "checkbox_image",
@@ -171,20 +171,20 @@
       "page": 1,
       "bbox": [
         18.82830090792674,
-        270.9357704462915,
+        511.43837312057224,
         31.016980153209758,
-        280.56162687942776
+        521.0642295537085
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "checkbox",
       "extraction_method": "checkbox_image",
@@ -203,20 +203,20 @@
       "page": 1,
       "bbox": [
         18.186791473964476,
-        282.48679816605494,
+        498.6038978763905,
         31.658489587172017,
-        293.3961021236095
+        509.51320183394506
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "checkbox",
       "extraction_method": "checkbox_image",
@@ -235,20 +235,20 @@
       "page": 1,
       "bbox": [
         18.186791473964476,
-        294.93624013210416,
+        486.7961796725506,
         32.29999902113428,
-        305.2038203274494
+        497.06375986789584
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "checkbox",
       "extraction_method": "checkbox_image",
@@ -267,180 +267,20 @@
       "page": 1,
       "bbox": [
         21.394338643775793,
-        76.4934704969379,
+        675.7196562460987,
         98.3754707192475,
-        116.28034375390132
+        715.5065295030621
       ],
       "coordinate_space": "pdf_points_top_left",
       "source_page_size": [
-        612.0,
-        792.0
+        612,
+        792
       ],
       "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
-      },
-      "field_type": "multiline_text",
-      "extraction_method": "embedded_text",
-      "required": false,
-      "options": {
-        "trim": true,
-        "collapse_whitespace": false,
-        "exclude_label_text": true
-      },
-      "columns": []
-    },
-    {
-      "id": "fld_field_1_09_009",
-      "name": "auto_premium",
-      "label": "Business Auto Premium",
-      "page": 1,
-      "bbox": [
-        157.3943386437758,
-        247.1919912445552,
-        209.99811222868144,
-        256.8178476776915
-      ],
-      "coordinate_space": "pdf_points_top_left",
-      "source_page_size": [
-        612.0,
-        792.0
-      ],
-      "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
-      },
-      "field_type": "text",
-      "extraction_method": "embedded_text",
-      "required": false,
-      "options": {
-        "trim": true,
-        "collapse_whitespace": true,
-        "exclude_label_text": true
-      },
-      "columns": []
-    },
-    {
-      "id": "fld_field_1_10_010",
-      "name": "bop_premium",
-      "label": "BOP Premium",
-      "page": 1,
-      "bbox": [
-        156.87204879458395,
-        259.505030767246,
-        211.16191151183563,
-        270.1737586433642
-      ],
-      "coordinate_space": "pdf_points_top_left",
-      "source_page_size": [
-        612.0,
-        792.0
-      ],
-      "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
-      },
-      "field_type": "text",
-      "extraction_method": "embedded_text",
-      "required": false,
-      "options": {
-        "trim": true,
-        "collapse_whitespace": true,
-        "exclude_label_text": true
-      },
-      "columns": []
-    },
-    {
-      "id": "fld_field_1_11_011",
-      "name": "policy_eff_date",
-      "label": "Proposed Eff Date",
-      "page": 1,
-      "bbox": [
-        23.960376379624854,
-        458.7041569773691,
-        80.41320656830409,
-        476.67242231922353
-      ],
-      "coordinate_space": "pdf_points_top_left",
-      "source_page_size": [
-        612.0,
-        792.0
-      ],
-      "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
-      },
-      "field_type": "text",
-      "extraction_method": "embedded_text",
-      "required": false,
-      "options": {
-        "trim": true,
-        "collapse_whitespace": true,
-        "exclude_label_text": true
-      },
-      "columns": []
-    },
-    {
-      "id": "fld_field_1_12_012",
-      "name": "policy_premium",
-      "label": "Policy Premium",
-      "page": 1,
-      "bbox": [
-        540.3754707192475,
-        458.3191188032726,
-        592.3377348701908,
-        478.2125554317543
-      ],
-      "coordinate_space": "pdf_points_top_left",
-      "source_page_size": [
-        612.0,
-        792.0
-      ],
-      "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
-      },
-      "field_type": "text",
-      "extraction_method": "embedded_text",
-      "required": false,
-      "options": {
-        "trim": true,
-        "collapse_whitespace": true,
-        "exclude_label_text": true
-      },
-      "columns": []
-    },
-    {
-      "id": "fld_field_1_13_013",
-      "name": "gl_class_code",
-      "label": "GL Class Code",
-      "page": 1,
-      "bbox": [
-        310.0,
-        503.8000183105469,
-        332.239990234375,
-        514.7920532226562
-      ],
-      "coordinate_space": "pdf_points_top_left",
-      "source_page_size": [
-        612.0,
-        792.0
-      ],
-      "padding": {
-        "top": 0.0,
-        "right": 0.0,
-        "bottom": 0.0,
-        "left": 0.0
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
       },
       "field_type": "multiline_text",
       "extraction_method": "embedded_text",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { listFileEntries } from "../lib/api";
 import type { FileBrowserEntry } from "../types";
@@ -60,13 +60,19 @@ export function PathPickerDialog(props: PathPickerDialogProps) {
   const [entries, setEntries] = useState<FileBrowserEntry[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const pathInputRef = useRef(pathInput);
   const extensionsKey = useMemo(
     () => allowedExtensions.join(","),
     [allowedExtensions],
   );
 
   useEffect(() => {
+    pathInputRef.current = pathInput;
+  }, [pathInput]);
+
+  useEffect(() => {
     let isCancelled = false;
+    const requestedPathKey = requestedPath?.trim() ?? "";
 
     const loadEntries = async () => {
       setIsLoading(true);
@@ -80,7 +86,9 @@ export function PathPickerDialog(props: PathPickerDialogProps) {
           return;
         }
         setResolvedPath(response.current_path);
-        setPathInput(response.current_path);
+        if ((pathInputRef.current.trim() ?? "") === requestedPathKey) {
+          setPathInput(response.current_path);
+        }
         setParentPath(response.parent_path ?? null);
         setEntries(response.entries);
         setErrorMessage(null);
@@ -146,7 +154,11 @@ export function PathPickerDialog(props: PathPickerDialogProps) {
               type="button"
               className="ghost-button"
               disabled={isLoading}
-              onClick={() => setRequestedPath(pathInput.trim() || undefined)}
+              onClick={() => {
+                const nextPath = pathInput.trim() || undefined;
+                setPathInput(nextPath ?? "");
+                setRequestedPath(nextPath);
+              }}
             >
               Go
             </button>
@@ -154,7 +166,11 @@ export function PathPickerDialog(props: PathPickerDialogProps) {
               type="button"
               className="ghost-button"
               disabled={!parentPath || isLoading}
-              onClick={() => setRequestedPath(parentPath ?? undefined)}
+              onClick={() => {
+                const nextPath = parentPath ?? undefined;
+                setPathInput(nextPath ?? "");
+                setRequestedPath(nextPath);
+              }}
             >
               Up
             </button>
@@ -178,11 +194,15 @@ export function PathPickerDialog(props: PathPickerDialogProps) {
                 <button
                   type="button"
                   className="path-picker-entry"
-                  onClick={() =>
-                    entry.entry_type === "directory"
-                      ? setRequestedPath(entry.path)
-                      : onSelect(entry.path)
-                  }
+                  onClick={() => {
+                    if (entry.entry_type === "directory") {
+                      setPathInput(entry.path);
+                      setRequestedPath(entry.path);
+                      return;
+                    }
+
+                    onSelect(entry.path);
+                  }}
                 >
                   <span className="path-picker-entry-title">
                     <strong>{entry.name}</strong>

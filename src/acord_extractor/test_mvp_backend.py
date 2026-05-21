@@ -24,6 +24,45 @@ from acord_extractor.validation import validate_template
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_PDF = REPO_ROOT / "data" / "sample" / "acord-125.pdf"
 SAMPLE_RECIPE = REPO_ROOT / "data" / "sample" / "acord-125.recipe.json"
+CHECKBOX_MULTILINE_RECIPE = REPO_ROOT / "fixtures" / "test-checkbox-multiline-text.json"
+EXPECTED_EXPANDED_SAMPLE_VALUES: dict[str, str | bool | None] = {
+    "has_accounts_receivable_valuable_papers": False,
+    "has_boiler_and_machinery_section": False,
+    "has_business_auto_section": True,
+    "has_bop_section": True,
+    "has_gl_section": False,
+    "has_crime_section": False,
+    "has_dealers_section": False,
+    "agent_name_address": "Jim Bob Agency\n123 Main St\nAnytown, OH 45123",
+    "auto_premium": "1000",
+    "bop_premium": "2000",
+    "policy_eff_date": "1/1/2027",
+    "policy_premium": "3000",
+    "gl_class_code": "11111",
+}
+SAMPLE_RECIPE_FIELD_COUNT = len(EXPECTED_EXPANDED_SAMPLE_VALUES)
+
+
+def mirror_recipe_to_legacy_bboxes(template: FormTemplate) -> FormTemplate:
+    legacy_fields = []
+    for field in template.fields:
+        source_width, source_height = field.source_page_size or (612.0, 792.0)
+        x0, y0, x1, y1 = field.bbox
+        legacy_fields.append(
+            field.model_copy(
+                update={
+                    "bbox": (
+                        x0,
+                        source_height - y1,
+                        x1,
+                        source_height - y0,
+                    ),
+                    "source_page_size": (source_width, source_height),
+                }
+            )
+        )
+
+    return template.model_copy(update={"fields": legacy_fields})
 
 
 def make_validated_sample_template() -> FormTemplate:
@@ -106,10 +145,38 @@ def test_validate_template_reports_strong_medium_and_weak_failures() -> None:
 def test_preview_template_returns_saved_sample_field() -> None:
     previews = preview_template(SAMPLE_PDF, load_recipe(SAMPLE_RECIPE))
 
-    assert len(previews) == 1
-    assert previews[0].field_name == "field_1_01"
-    assert previews[0].status == "ok"
-    assert previews[0].normalized_text is True
+    assert len(previews) == SAMPLE_RECIPE_FIELD_COUNT
+    assert {preview.field_name: preview.normalized_text for preview in previews} == (
+        EXPECTED_EXPANDED_SAMPLE_VALUES
+    )
+
+
+def test_preview_template_accepts_legacy_app_produced_bboxes() -> None:
+    legacy_recipe = mirror_recipe_to_legacy_bboxes(load_recipe(SAMPLE_RECIPE))
+
+    previews = preview_template(SAMPLE_PDF, legacy_recipe)
+
+    assert {preview.field_name: preview.normalized_text for preview in previews} == (
+        EXPECTED_EXPANDED_SAMPLE_VALUES
+    )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "expected_value"),
+    list(EXPECTED_EXPANDED_SAMPLE_VALUES.items()),
+)
+def test_preview_field_returns_expected_known_sample_values(
+    field_name: str, expected_value: str | bool | None
+) -> None:
+    recipe = load_recipe(SAMPLE_RECIPE)
+    field = next(field for field in recipe.fields if field.name == field_name)
+
+    preview = preview_field(SAMPLE_PDF, recipe, field.id)
+
+    assert preview.normalized_text == expected_value
+    assert preview.status == (
+        "empty" if expected_value is False or expected_value is None else "ok"
+    )
 
 
 def test_preview_field_raises_for_unknown_id() -> None:
@@ -247,9 +314,35 @@ def test_preview_template_marks_unsupported_field_method_combinations() -> None:
 def test_extract_pdf_returns_saved_sample_value() -> None:
     result = extract_pdf(SAMPLE_PDF, load_recipe(SAMPLE_RECIPE))
 
-    assert len(result.fields) == 1
-    assert result.fields[0].field_name == "field_1_01"
-    assert result.fields[0].value is True
+    assert len(result.fields) == SAMPLE_RECIPE_FIELD_COUNT
+    assert {field.field_name: field.value for field in result.fields} == (
+        EXPECTED_EXPANDED_SAMPLE_VALUES
+    )
+
+
+def test_extract_pdf_accepts_legacy_app_produced_bboxes() -> None:
+    legacy_recipe = mirror_recipe_to_legacy_bboxes(load_recipe(SAMPLE_RECIPE))
+
+    result = extract_pdf(SAMPLE_PDF, legacy_recipe)
+
+    assert {field.field_name: field.value for field in result.fields} == (
+        EXPECTED_EXPANDED_SAMPLE_VALUES
+    )
+
+
+def test_extract_pdf_returns_expected_checkbox_and_multiline_fixture_values() -> None:
+    result = extract_pdf(SAMPLE_PDF, load_recipe(CHECKBOX_MULTILINE_RECIPE))
+
+    assert {field.field_name: field.value for field in result.fields} == {
+        "has_accounts_receivable_valuable_papers": False,
+        "has_boiler_and_machinery_section": False,
+        "has_business_auto_section": True,
+        "has_bop_section": True,
+        "has_gl_section": False,
+        "has_crime_section": False,
+        "has_dealers_section": False,
+        "agent_name_address": "Jim Bob Agency\n123 Main St\nAnytown, OH 45123",
+    }
 
 
 def test_export_debug_overlay_writes_pdf(tmp_path: Path) -> None:
@@ -282,14 +375,14 @@ def test_api_end_to_end_supports_recipe_save_load_preview_and_validate(
         "/recipe/load", json={"recipe_path": str(saved_recipe_path)}
     )
     assert load_response.status_code == 200
-    assert len(load_response.json()["fields"]) == 1
+    assert len(load_response.json()["fields"]) == SAMPLE_RECIPE_FIELD_COUNT
 
     preview_response = client.post(
         "/preview",
         json={"pdf_path": str(SAMPLE_PDF), "recipe_path": str(saved_recipe_path)},
     )
     assert preview_response.status_code == 200
-    assert len(preview_response.json()) == 1
+    assert len(preview_response.json()) == SAMPLE_RECIPE_FIELD_COUNT
 
     validate_response = client.post(
         "/validate-template",
@@ -326,14 +419,16 @@ def test_api_render_extract_and_overlay_endpoints(tmp_path: Path) -> None:
     )
     assert session_response.status_code == 200
     assert session_response.json()["pdf_info"]["page_count"] == 4
-    assert len(session_response.json()["template"]["fields"]) == 1
+    assert (
+        len(session_response.json()["template"]["fields"]) == SAMPLE_RECIPE_FIELD_COUNT
+    )
 
     extract_response = client.post(
         "/extract",
         json={"pdf_path": str(SAMPLE_PDF), "recipe_path": str(SAMPLE_RECIPE)},
     )
     assert extract_response.status_code == 200
-    assert len(extract_response.json()["fields"]) == 1
+    assert len(extract_response.json()["fields"]) == SAMPLE_RECIPE_FIELD_COUNT
 
     overlay_response = client.post(
         "/export-debug-overlay",
@@ -455,7 +550,7 @@ def test_cli_preview_validate_extract_and_overlay_commands(tmp_path: Path) -> No
         ],
     )
     assert preview.exit_code == 0
-    assert len(json.loads(preview.output)) == 1
+    assert len(json.loads(preview.output)) == SAMPLE_RECIPE_FIELD_COUNT
 
     validate = runner.invoke(
         cli_app,
@@ -481,7 +576,7 @@ def test_cli_preview_validate_extract_and_overlay_commands(tmp_path: Path) -> No
         ],
     )
     assert extract.exit_code == 0
-    assert len(json.loads(extract.output)["fields"]) == 1
+    assert len(json.loads(extract.output)["fields"]) == SAMPLE_RECIPE_FIELD_COUNT
 
     overlay = runner.invoke(
         cli_app,
@@ -519,6 +614,34 @@ def test_cli_save_recipe_command_writes_canonical_recipe(tmp_path: Path) -> None
     saved = json.loads(result.output)
     assert saved["form_id"] == "ACORD_125"
     assert output_path.exists()
+
+
+def test_cli_extract_command_writes_json_output_file(tmp_path: Path) -> None:
+    runner = CliRunner()
+    output_path = tmp_path / "extracted-values.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "extract",
+            "--pdf",
+            str(SAMPLE_PDF),
+            "--recipe",
+            str(SAMPLE_RECIPE),
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    extracted = json.loads(result.output)
+    saved = json.loads(output_path.read_text())
+    assert extracted == saved
+    assert saved["form_id"] == "ACORD_125"
+    assert len(saved["fields"]) == SAMPLE_RECIPE_FIELD_COUNT
+    assert {field["field_name"]: field["value"] for field in saved["fields"]} == (
+        EXPECTED_EXPANDED_SAMPLE_VALUES
+    )
 
 
 def test_main_invokes_cli_help(

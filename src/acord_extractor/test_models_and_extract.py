@@ -86,10 +86,29 @@ def test_load_template_reads_json_from_disk() -> None:
 
 def test_load_recipe_reads_canonical_sample_recipe() -> None:
     recipe = load_recipe(SAMPLE_RECIPE_FIXTURE)
+    fields_by_name = {field.name: field for field in recipe.fields}
 
     assert recipe.template_state == "draft"
-    assert len(recipe.fields) == 1
-    assert recipe.fields[0].name == "field_1_01"
+    assert len(recipe.fields) == 13
+    assert set(fields_by_name) == {
+        "has_accounts_receivable_valuable_papers",
+        "has_boiler_and_machinery_section",
+        "has_business_auto_section",
+        "has_bop_section",
+        "has_gl_section",
+        "has_crime_section",
+        "has_dealers_section",
+        "agent_name_address",
+        "auto_premium",
+        "bop_premium",
+        "policy_eff_date",
+        "policy_premium",
+        "gl_class_code",
+    }
+    assert fields_by_name["agent_name_address"].options.collapse_whitespace is False
+    assert fields_by_name["gl_class_code"].bbox == pytest.approx(
+        (310.0, 503.8000183105469, 332.239990234375, 514.7920532226562)
+    )
     assert recipe.anchors == []
 
 

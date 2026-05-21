@@ -7,23 +7,26 @@ import {
 } from "./pdfCoordinates";
 import type { ViewportLike } from "./pdfCoordinates";
 
+const PAGE_WIDTH = 612;
+const PAGE_HEIGHT = 792;
+
 function makeViewport(scale: number): ViewportLike {
   return {
-    width: 612 * scale,
-    height: 792 * scale,
+    width: PAGE_WIDTH * scale,
+    height: PAGE_HEIGHT * scale,
     rotation: 0,
-    convertToPdfPoint: (x, y) => [x / scale, y / scale],
-    convertToViewportPoint: (x, y) => [x * scale, y * scale],
+    convertToPdfPoint: (x, y) => [x / scale, PAGE_HEIGHT - y / scale],
+    convertToViewportPoint: (x, y) => [x * scale, (PAGE_HEIGHT - y) * scale],
   };
 }
 
 function makeRotatedViewport(scale: number): ViewportLike {
   return {
-    width: 792 * scale,
-    height: 612 * scale,
+    width: PAGE_HEIGHT * scale,
+    height: PAGE_WIDTH * scale,
     rotation: 90,
-    convertToPdfPoint: (x, y) => [y / scale, (792 * scale - x) / scale],
-    convertToViewportPoint: (x, y) => [792 * scale - y * scale, x * scale],
+    convertToPdfPoint: (x, y) => [y / scale, PAGE_HEIGHT - x / scale],
+    convertToViewportPoint: (x, y) => [(PAGE_HEIGHT - y) * scale, x * scale],
   };
 }
 
@@ -44,7 +47,7 @@ describe("pdfCoordinates", () => {
 
     const rect = pdfBboxToViewportRect(viewport, bbox);
 
-    expect(rect).toEqual({ x: 647, y: 72, width: 25, height: 248 });
+    expect(rect).toEqual({ x: 120, y: 72, width: 25, height: 248 });
     expect(viewportRectToPdfBbox(viewport, rect)).toEqual(bbox);
   });
 

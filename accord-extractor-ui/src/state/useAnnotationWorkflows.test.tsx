@@ -145,6 +145,43 @@ describe("useAnnotationWorkflows", () => {
     expect(result.current.errorMessage).toBeNull();
   });
 
+  it("keeps an explicit recipe path available for later saves when loading without a recipe", async () => {
+    const workspaceRef = createWorkspaceRef();
+    const explicitRecipePath = "/tmp/new-output.recipe.json";
+
+    useUiSettings.setState({
+      apiBaseUrl: "http://127.0.0.1:8000",
+      recipePath: explicitRecipePath,
+    });
+    startSession.mockResolvedValue({
+      ...sessionFixture,
+      recipe_path: null,
+      template: {
+        ...sessionFixture.template,
+        fields: [],
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useAnnotationWorkflows({
+        pdfPath: "/tmp/sample.pdf",
+        useExistingRecipe: false,
+        workspaceRef,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.loadWorkspace();
+    });
+
+    expect(startSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipePath: undefined,
+      }),
+    );
+    expect(useUiSettings.getState().recipePath).toBe(explicitRecipePath);
+  });
+
   it("saves the current draft through workflow state", async () => {
     const workspaceRef = createWorkspaceRef();
     requestPreview.mockResolvedValue([]);

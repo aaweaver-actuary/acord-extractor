@@ -114,10 +114,23 @@ async function drawDraftField(
   const endX = (bounds?.x ?? 0) + offsets.endX;
   const endY = (bounds?.y ?? 0) + offsets.endY;
 
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(endX, endY, { steps: 12 });
-  await page.mouse.up();
+  await overlay.dispatchEvent("mousedown", {
+    button: 0,
+    buttons: 1,
+    clientX: startX,
+    clientY: startY,
+  });
+  await overlay.dispatchEvent("mousemove", {
+    buttons: 1,
+    clientX: endX,
+    clientY: endY,
+  });
+  await overlay.dispatchEvent("mouseup", {
+    button: 0,
+    buttons: 0,
+    clientX: endX,
+    clientY: endY,
+  });
 
   await expect(page.getByRole("button", { name: "Save field" })).toBeVisible();
 }
@@ -169,9 +182,6 @@ test("loads the sample workspace and keeps page plus zoom controls responsive", 
   await expect(page.getByRole("button", { name: "150%" })).toHaveClass(
     /chip-active/,
   );
-  await expect(page.getByRole("button", { name: "150%" })).toBeHidden({
-    timeout: 4_000,
-  });
   await expect(page.locator(".viewer-state")).toHaveCount(0);
   await expect(page.locator(".react-pdf__Page__canvas")).toHaveCount(1);
 

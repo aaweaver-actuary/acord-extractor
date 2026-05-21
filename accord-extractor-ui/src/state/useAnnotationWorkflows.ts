@@ -129,6 +129,10 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
 
       const localSnapshot = getLocalWorkspaceSnapshotForSession(session);
       const restoredTemplate = localSnapshot?.template ?? session.template;
+      const resolvedRecipePath =
+        localSnapshot?.recipePath?.trim() ||
+        session.recipe_path?.trim() ||
+        nextRecipePath.trim();
 
       debugLog("workflow", "session template resolved", {
         fieldCount: restoredTemplate.fields.length,
@@ -137,11 +141,7 @@ export function useAnnotationWorkflows(options: AnnotationWorkflowOptions) {
 
       startTransition(() => {
         loadSessionIntoStore({ ...session, template: restoredTemplate });
-        if (localSnapshot) {
-          setRecipePath(localSnapshot.recipePath ?? "");
-        } else if (!session.recipe_path) {
-          setRecipePath("");
-        }
+        setRecipePath(resolvedRecipePath);
       });
       await refreshAllPreviews(restoredTemplate, nextPdfPath);
       workspaceRef.current?.scrollIntoView?.({

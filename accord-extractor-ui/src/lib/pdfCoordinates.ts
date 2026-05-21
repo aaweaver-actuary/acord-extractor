@@ -8,6 +8,47 @@ export interface ViewportLike {
   convertToViewportPoint: (x: number, y: number) => [number, number];
 }
 
+interface PdfBounds {
+  minX: number;
+  maxY: number;
+}
+
+function getPdfBounds(viewport: ViewportLike): PdfBounds {
+  const corners = [
+    viewport.convertToPdfPoint(0, 0),
+    viewport.convertToPdfPoint(viewport.width, 0),
+    viewport.convertToPdfPoint(0, viewport.height),
+    viewport.convertToPdfPoint(viewport.width, viewport.height),
+  ];
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+
+  return {
+    minX: Math.min(...xs),
+    maxY: Math.max(...ys),
+  };
+}
+
+function viewportPointToCanonicalPdfPoint(
+  viewport: ViewportLike,
+  x: number,
+  y: number,
+): [number, number] {
+  const [pdfX, pdfY] = viewport.convertToPdfPoint(x, y);
+  const bounds = getPdfBounds(viewport);
+
+  return [pdfX - bounds.minX, bounds.maxY - pdfY];
+}
+
+function canonicalPdfPointToViewportPoint(
+  viewport: ViewportLike,
+  x: number,
+  y: number,
+): [number, number] {
+  const bounds = getPdfBounds(viewport);
+  return viewport.convertToViewportPoint(x + bounds.minX, bounds.maxY - y);
+}
+
 function normalizeBounds(points: Array<[number, number]>): ViewportRect {
   const xs = points.map(([x]) => x);
   const ys = points.map(([, y]) => y);
@@ -29,10 +70,14 @@ export function viewportRectToPdfBbox(
   rect: ViewportRect,
 ): Bbox {
   const points = [
-    viewport.convertToPdfPoint(rect.x, rect.y),
-    viewport.convertToPdfPoint(rect.x + rect.width, rect.y),
-    viewport.convertToPdfPoint(rect.x, rect.y + rect.height),
-    viewport.convertToPdfPoint(rect.x + rect.width, rect.y + rect.height),
+    viewportPointToCanonicalPdfPoint(viewport, rect.x, rect.y),
+    viewportPointToCanonicalPdfPoint(viewport, rect.x + rect.width, rect.y),
+    viewportPointToCanonicalPdfPoint(viewport, rect.x, rect.y + rect.height),
+    viewportPointToCanonicalPdfPoint(
+      viewport,
+      rect.x + rect.width,
+      rect.y + rect.height,
+    ),
   ];
 
   const xs = points.map(([x]) => x);
@@ -46,10 +91,10 @@ export function pdfBboxToViewportRect(
 ): ViewportRect {
   const [left, top, right, bottom] = bbox;
   return normalizeBounds([
-    viewport.convertToViewportPoint(left, top),
-    viewport.convertToViewportPoint(right, top),
-    viewport.convertToViewportPoint(left, bottom),
-    viewport.convertToViewportPoint(right, bottom),
+    canonicalPdfPointToViewportPoint(viewport, left, top),
+    canonicalPdfPointToViewportPoint(viewport, right, top),
+    canonicalPdfPointToViewportPoint(viewport, left, bottom),
+    canonicalPdfPointToViewportPoint(viewport, right, bottom),
   ]);
 }
 
