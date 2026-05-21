@@ -1,0 +1,36 @@
+[project]
+name = "acord-extractor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Andy Weaver", email = "andrewayersweaver@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.136.1",
+    "fitz>=0.0.1.dev2",
+    "matplotlib>=3.10.9",
+    "opencv-python>=4.13.0.92",
+    "pdfplumber>=0.11.9",
+    "pillow>=12.2.0",
+    "pydantic>=2.13.4",
+    "pymupdf>=1.27.2.3",
+    "pytesseract>=0.3.13",
+    "typer>=0.25.1",
+]
+
+[project.scripts]
+acord-extractor = "acord_extractor:main"
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.15.13",
+    "ty>=0.0.38",
+]

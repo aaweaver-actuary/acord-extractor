@@ -1,0 +1,12 @@
+{
+  "form_id": "ACORD_125",
+  "version": "sample_v1",
+  "fields": [
+    {
+      "name": "applicant_name",
+      "page": 1,
+      "bbox": [72.0, 120.0, 320.0, 145.0],
+      "method": "embedded_text"
+    }
+  ]
+}
