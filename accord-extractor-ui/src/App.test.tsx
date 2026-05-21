@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { SAMPLE_RECIPE_PATH } from "./lib/samplePaths";
 import { useAnnotationStore } from "./state/useAnnotationStore";
 import { useUiSettings } from "./state/useUiSettings";
 
@@ -29,8 +30,7 @@ describe("App", () => {
     useAnnotationStore.getState().reset();
     useUiSettings.setState({
       apiBaseUrl: "http://127.0.0.1:8000",
-      recipePath:
-        "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json",
+      recipePath: SAMPLE_RECIPE_PATH,
     });
     try {
       window.localStorage?.clear?.();
@@ -157,8 +157,7 @@ describe("App", () => {
     await waitFor(() => expect(startSession).toHaveBeenCalled());
     expect(startSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        recipePath:
-          "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json",
+        recipePath: SAMPLE_RECIPE_PATH,
       }),
     );
   });

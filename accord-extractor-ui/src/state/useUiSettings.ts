@@ -1,10 +1,14 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import {
+  LEGACY_SAMPLE_RECIPE_PATH,
+  SAMPLE_RECIPE_PATH,
+} from "../lib/samplePaths";
+
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
-const DEFAULT_RECIPE_PATH =
-  "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json";
+const DEFAULT_RECIPE_PATH = SAMPLE_RECIPE_PATH;
 
 interface UiSettingsState {
   apiBaseUrl: string;
@@ -47,6 +51,18 @@ export const useUiSettings = create<UiSettingsState>()(
     {
       name: "acord-ui-settings",
       storage: createJSONStorage(getPersistStorage),
+      version: 2,
+      migrate: (persistedState) => {
+        const state = (persistedState ?? {}) as Partial<UiSettingsState>;
+
+        return {
+          apiBaseUrl: state.apiBaseUrl ?? DEFAULT_API_BASE_URL,
+          recipePath:
+            state.recipePath === LEGACY_SAMPLE_RECIPE_PATH
+              ? DEFAULT_RECIPE_PATH
+              : (state.recipePath ?? DEFAULT_RECIPE_PATH),
+        };
+      },
     },
   ),
 );

@@ -3,14 +3,14 @@ import { copyFile, mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-const SAMPLE_PDF_PATH = "/Users/andy/acord-extractor/data/sample/acord-125.pdf";
-const SAMPLE_RECIPE_PATH =
-  "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json";
+import { SAMPLE_PDF_PATH, SAMPLE_RECIPE_PATH } from "../src/lib/samplePaths";
+
+const SAMPLE_RECIPE_SOURCE_PATH = path.resolve("..", SAMPLE_RECIPE_PATH);
 
 async function createTempRecipeCopy(): Promise<string> {
   const directory = await mkdtemp(path.join(os.tmpdir(), "acord-ui-e2e-"));
   const recipePath = path.join(directory, "acord-125.recipe.json");
-  await copyFile(SAMPLE_RECIPE_PATH, recipePath);
+  await copyFile(SAMPLE_RECIPE_SOURCE_PATH, recipePath);
   return recipePath;
 }
 
@@ -30,7 +30,12 @@ async function loadWorkspace(
   }
   await page.getByRole("button", { name: "Load workspace" }).click();
 
-  await expect(page.locator(".react-pdf__Page canvas").first()).toBeVisible();
+  await expect(page.getByText("Loading PDF…")).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await expect(page.locator(".react-pdf__Page__canvas").last()).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(
     page.getByRole("heading", { name: "Saved annotations" }),
   ).toBeVisible();
@@ -107,7 +112,9 @@ async function saveDraftField(
 ) {
   await page.getByRole("button", { name: "Save field" }).click();
   await expect(page.getByRole("button", { name: fieldRowName })).toBeVisible();
-  await expect(page.locator(".react-pdf__Page canvas").first()).toBeVisible();
+  await expect(page.locator(".react-pdf__Page__canvas").last()).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText("Failed to load PDF file.")).toHaveCount(0);
 }
 

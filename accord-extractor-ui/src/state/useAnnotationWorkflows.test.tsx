@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionStartResponse } from "../types";
+import { SAMPLE_RECIPE_PATH } from "../lib/samplePaths";
 import { useAnnotationStore } from "./useAnnotationStore";
 import { useAnnotationWorkflows } from "./useAnnotationWorkflows";
 import { useUiSettings } from "./useUiSettings";
@@ -89,8 +90,7 @@ describe("useAnnotationWorkflows", () => {
     useAnnotationStore.getState().reset();
     useUiSettings.setState({
       apiBaseUrl: "http://127.0.0.1:8000",
-      recipePath:
-        "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json",
+      recipePath: SAMPLE_RECIPE_PATH,
     });
     requestPreview.mockReset();
     saveRecipe.mockReset();
@@ -172,8 +172,7 @@ describe("useAnnotationWorkflows", () => {
 
     expect(saveRecipe).toHaveBeenCalledWith(
       expect.objectContaining({
-        recipePath:
-          "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json",
+        recipePath: SAMPLE_RECIPE_PATH,
       }),
     );
     expect(useAnnotationStore.getState().savedFields[0]?.label).toBe(

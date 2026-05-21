@@ -4,18 +4,14 @@ import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
 import { ViewerPane } from "./components/ViewerPane";
 import { buildPdfFileUrl } from "./lib/api";
+import { SAMPLE_PDF_PATH, SAMPLE_RECIPE_PATH } from "./lib/samplePaths";
 import { useAnnotationStore } from "./state/useAnnotationStore";
 import { useCurrentPageSize } from "./state/useAnnotationView";
 import { useAnnotationWorkflows } from "./state/useAnnotationWorkflows";
 import { useUiSettings } from "./state/useUiSettings";
 
-const DEFAULT_PDF_PATH =
-  "/Users/andy/acord-extractor/data/sample/acord-125.pdf";
-const DEFAULT_RECIPE_PATH =
-  "/Users/andy/acord-extractor/data/sample/acord-125.recipe.json";
-
 function App() {
-  const [pdfPath, setPdfPath] = useState(DEFAULT_PDF_PATH);
+  const [pdfPath, setPdfPath] = useState(SAMPLE_PDF_PATH);
   const [useExistingRecipe, setUseExistingRecipe] = useState(false);
   const workspaceRef = useRef<HTMLElement | null>(null);
 
@@ -53,8 +49,8 @@ function App() {
         isLoadingSession={isLoadingSession}
         onApiBaseUrlChange={setApiBaseUrl}
         onLoadSamplePaths={() => {
-          setPdfPath(DEFAULT_PDF_PATH);
-          setRecipePath(DEFAULT_RECIPE_PATH);
+          setPdfPath(SAMPLE_PDF_PATH);
+          setRecipePath(SAMPLE_RECIPE_PATH);
           setUseExistingRecipe(false);
         }}
         onLoadSession={handleLoadSession}
