@@ -57,6 +57,7 @@ def mirror_recipe_to_legacy_bboxes(template: FormTemplate) -> FormTemplate:
                         x1,
                         source_height - y0,
                     ),
+                    "coordinate_space": "pdf_points_bottom_left_legacy",
                     "source_page_size": (source_width, source_height),
                 }
             )

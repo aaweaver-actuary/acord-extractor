@@ -123,75 +123,6 @@ def _legacy_bbox_to_top_left(
     )
 
 
-def _text_candidate_score(normalized: str | None, field: FieldTemplate) -> float:
-    if not normalized:
-        return 0.0
-
-    compact = re.sub(r"\s+", "", normalized)
-    score = 1.0
-    if len(compact) >= 3:
-        score += 1.0
-
-    context = " ".join(filter(None, [field.name, field.label])).lower()
-    stripped = normalized.strip()
-
-    if re.search(r"date|effective|eff", context):
-        if re.fullmatch(r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}", stripped):
-            score += 3.0
-        else:
-            score -= 1.0
-
-    if re.search(r"premium|amount|total|limit|deductible", context):
-        if re.fullmatch(r"\$?\d[\d,]*(?:\.\d{2})?", compact):
-            score += 3.0
-        elif re.search(r"\d", compact):
-            score += 1.0
-        else:
-            score -= 1.0
-
-    if re.search(r"code", context):
-        if re.fullmatch(r"[A-Z0-9-]+", stripped.upper()):
-            score += 2.0
-        elif re.fullmatch(r"[A-Z0-9 -]+", stripped.upper()):
-            score += 0.5
-
-    if field.field_type == "multiline_text" and "\n" in normalized:
-        score += 1.0
-
-    return score
-
-
-def _should_use_legacy_bboxes(doc: fitz.Document, template: FormTemplate) -> bool:
-    text_fields = [
-        field
-        for field in template.fields
-        if field.extraction_method == "embedded_text"
-        and field.field_type in TEXT_PREVIEW_FIELD_TYPES
-    ]
-    if not text_fields:
-        return False
-
-    current_score = 0.0
-    legacy_score = 0.0
-    for field in text_fields:
-        page = doc[field.page - 1]
-        current_bbox = clamp_bbox_to_page(page, field.bbox, field.padding)
-        legacy_bbox = clamp_bbox_to_page(
-            page, _legacy_bbox_to_top_left(page, field), field.padding
-        )
-
-        current_score += _text_candidate_score(
-            _normalize_preview_text(extract_textbox(page, current_bbox), field),
-            field,
-        )
-        legacy_score += _text_candidate_score(
-            _normalize_preview_text(extract_textbox(page, legacy_bbox), field),
-            field,
-        )
-
-    return legacy_score > (current_score + 0.5)
-
-
 def _normalize_preview_text(raw_text: str, field: FieldTemplate) -> str:
     normalized = raw_text
     if field.options.trim:
@@ -215,6 +146,12 @@ def preview_field(
 
 def preview_template(pdf_path: Path, template: FormTemplate) -> list[FieldPreview]:
     doc = fitz.open(pdf_path)
+    page_count = getattr(doc, "page_count", None)
+    if page_count is None:
+        try:
+            page_count = len(doc)
+        except TypeError:
+            page_count = max((field.page for field in template.fields), default=0)
     validation = (
         validate_template(pdf_path, template)
         if (template.anchor_text or template.anchors)
@@ -223,14 +160,44 @@ def preview_template(pdf_path: Path, template: FormTemplate) -> list[FieldPrevie
     anchor_drift = validation is not None and any(
         result.status == "drift" for result in validation.anchor_results
     )
-    use_legacy_bboxes = _should_use_legacy_bboxes(doc, template)
-
     previews: list[FieldPreview] = []
     for field in template.fields:
+        if field.page < 1 or field.page > page_count:
+            previews.append(
+                FieldPreview(
+                    field_id=field.id,
+                    field_name=field.name,
+                    bbox=field.bbox,
+                    status="invalid_page",
+                    status_reason=["field_page_out_of_bounds"],
+                    template_version=template.template_version,
+                )
+            )
+            continue
         page = doc[field.page - 1]
         resolved_bbox = (
-            _legacy_bbox_to_top_left(page, field) if use_legacy_bboxes else field.bbox
+            _legacy_bbox_to_top_left(page, field)
+            if field.coordinate_space == "pdf_points_bottom_left_legacy"
+            else field.bbox
         )
+        page_rect = page.rect
+        if (
+            resolved_bbox[2] <= page_rect.x0
+            or resolved_bbox[0] >= page_rect.x1
+            or resolved_bbox[3] <= page_rect.y0
+            or resolved_bbox[1] >= page_rect.y1
+        ):
+            previews.append(
+                FieldPreview(
+                    field_id=field.id,
+                    field_name=field.name,
+                    bbox=resolved_bbox,
+                    status="out_of_bounds",
+                    status_reason=["bbox_outside_page_bounds"],
+                    template_version=template.template_version,
+                )
+            )
+            continue
         bbox = clamp_bbox_to_page(page, resolved_bbox, field.padding)
 
         if (

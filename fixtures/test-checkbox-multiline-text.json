@@ -47,7 +47,7 @@
         31.658489587172017,
         570.4769592438083
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
@@ -79,7 +79,7 @@
         31.658489587172017,
         557.6424839996266
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
@@ -111,7 +111,7 @@
         31.658489587172017,
         544.8080087554448
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
@@ -143,7 +143,7 @@
         32.29999902113428,
         533.2569810356812
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
@@ -175,7 +175,7 @@
         31.016980153209758,
         521.0642295537085
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
@@ -207,7 +207,7 @@
         31.658489587172017,
         509.51320183394506
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
@@ -239,7 +239,7 @@
         32.29999902113428,
         497.06375986789584
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
@@ -271,7 +271,7 @@
         98.3754707192475,
         715.5065295030621
       ],
-      "coordinate_space": "pdf_points_top_left",
+      "coordinate_space": "pdf_points_bottom_left_legacy",
       "source_page_size": [
         612,
         792
