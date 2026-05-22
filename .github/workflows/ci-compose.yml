@@ -42,6 +42,13 @@ jobs:
         working-directory: accord-extractor-ui
         run: npx playwright install --with-deps chromium
 
+      - name: Ensure writable local virtualenv cache path
+        run: |
+          rm -rf .venv
+
+      - name: Run backend and frontend checks
+        run: make check
+
       - name: Docker Buildx setup
         uses: docker/setup-buildx-action@v3
 
@@ -63,9 +70,6 @@ jobs:
           echo "Backend failed health check"
           docker compose logs backend
           exit 1
-
-      - name: Run backend and frontend checks
-        run: make check
 
       - name: Run Playwright E2E
         run: |
