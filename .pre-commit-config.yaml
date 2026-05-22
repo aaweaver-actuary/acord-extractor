@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: mixed-line-ending
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+
+  - repo: local
+    hooks:
+      - id: pycheck
+        name: make pycheck
+        language: system
+        pass_filenames: false
+        entry: make pycheck
+
+      - id: jscheck
+        name: make jscheck
+        language: system
+        pass_filenames: false
+        entry: make jscheck
+
+      - id: playwright-e2e
+        name: playwright e2e (chromium)
+        language: system
+        pass_filenames: false
+        entry: bash -lc 'cd accord-extractor-ui && npm run test:e2e'
+        stages: [pre-push, manual]
