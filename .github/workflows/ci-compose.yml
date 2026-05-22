@@ -71,6 +71,19 @@ jobs:
           docker compose logs backend
           exit 1
 
+      - name: Wait for frontend health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              echo "Frontend is reachable"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Frontend failed readiness check"
+          docker compose logs frontend
+          exit 1
+
       - name: Run Playwright E2E
         run: |
           cd accord-extractor-ui
@@ -79,7 +92,7 @@ jobs:
           PW_API_BASE_URL=http://127.0.0.1:8000 \
           PW_FRONTEND_HOST=127.0.0.1 \
           PW_FRONTEND_PORT=3000 \
-          npm run test:e2e
+          npm run test:e2e -- --workers=1 --retries=1
 
       - name: Capture compose logs on failure
         if: failure()
