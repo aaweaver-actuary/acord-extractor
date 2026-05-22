@@ -340,3 +340,36 @@ def test_cli_help_lists_mvp_commands() -> None:
     assert result.exit_code == 0
     assert "preview" in result.output
     assert "validate-template" in result.output
+
+
+def test_extract_pdf_from_generated_sample_document(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "generated-sample.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((72, 120), "Applicant Name: Acme Roofing LLC")
+    doc.save(pdf_path)
+    doc.close()
+
+    recipe = {
+        "schema_version": "1.0",
+        "form_id": "SYNTHETIC_SAMPLE",
+        "template_version": "v1",
+        "template_state": "draft",
+        "fields": [
+            {
+                "name": "applicant_name",
+                "label": "Applicant Name",
+                "page": 1,
+                "bbox": [70, 105, 320, 130],
+                "field_type": "text",
+                "extraction_method": "embedded_text",
+            }
+        ],
+    }
+
+    template = FormTemplate.model_validate(recipe)
+    result = extract_pdf(pdf_path, template)
+
+    assert result.form_id == "SYNTHETIC_SAMPLE"
+    assert len(result.fields) == 1
+    assert "Acme Roofing LLC" in str(result.fields[0].value)

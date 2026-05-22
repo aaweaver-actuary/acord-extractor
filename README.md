@@ -34,6 +34,30 @@ acord-extractor save-recipe --recipe data/sample/acord-125.recipe.json --output 
 acord-extractor serve-api --host 127.0.0.1 --port 8009
 ```
 
+
+## Docker Compose (new default)
+
+Start the full development stack with Docker:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- Frontend: `http://localhost:3000`
+- Backend API docs: `http://localhost:8000/docs`
+
+The compose stack mounts a persistent local workspace at `./workspace` into `/workspace` inside containers so generated recipes, previews, and debug overlays persist on the host filesystem.
+
+You can also use Make targets:
+
+```bash
+make docker-build
+make docker-up
+make docker-down
+```
+
 ## Browser UI
 
 Start the backend API in one terminal:
