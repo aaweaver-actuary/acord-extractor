@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from tempfile import gettempdir
 from typing import Any, Literal
 from uuid import uuid4
@@ -27,6 +28,7 @@ from .validation import validate_template
 app = FastAPI(title="ACORD Data Extractor", version="0.1.0")
 
 UPLOAD_ROOT = Path(gettempdir()) / "acord-data-extractor" / "uploads"
+WORKSPACE_ROOT = Path(os.environ.get("ACORD_WORKSPACE_ROOT", "/")).resolve()
 UPLOAD_EXTENSIONS: dict[str, str] = {"pdf": ".pdf", "recipe": ".json"}
 
 app.add_middleware(
@@ -105,7 +107,12 @@ class UploadedWorkspaceFile(BaseModel):
 
 
 def _as_existing_path(path_text: str) -> Path:
-    path = Path(path_text)
+    path = Path(path_text).resolve()
+    if WORKSPACE_ROOT not in path.parents and path != WORKSPACE_ROOT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path must be inside workspace root: {WORKSPACE_ROOT}",
+        )
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Path does not exist: {path}")
     return path
@@ -113,7 +120,7 @@ def _as_existing_path(path_text: str) -> Path:
 
 def _as_directory_path(path_text: str | None) -> Path:
     if path_text is None:
-        return Path.cwd().resolve()
+        return WORKSPACE_ROOT
 
     path = _as_existing_path(path_text).resolve()
     if path.is_file():
@@ -261,7 +268,13 @@ def recipe_load(request: RecipePathRequest) -> FormTemplate:
 
 @app.post("/recipe/save", response_model=FormTemplate)
 def recipe_save(request: SaveRecipeRequest) -> FormTemplate:
-    return save_recipe(Path(request.recipe_path), request.template)
+    recipe_path = Path(request.recipe_path).resolve()
+    if WORKSPACE_ROOT not in recipe_path.parents and recipe_path != WORKSPACE_ROOT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path must be inside workspace root: {WORKSPACE_ROOT}",
+        )
+    return save_recipe(recipe_path, request.template)
 
 
 @app.post("/session/start", response_model=SessionStartResponse)

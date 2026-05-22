@@ -27,14 +27,20 @@ FieldType = Literal[
     "table_region",
 ]
 ExtractionMethod = Literal["embedded_text", "checkbox_image", "ocr", "manual"]
-CoordinateSpace = Literal["pdf_points_top_left"]
+CoordinateSpace = Literal["pdf_points_top_left", "pdf_points_bottom_left_legacy"]
 AnchorMatchType = Literal["contains", "exact"]
 TableDirection = Literal["vertical", "horizontal"]
 SignalStrength = Literal["strong", "medium", "weak"]
 SignalStatus = Literal["ok", "warning", "failed", "info"]
 AnchorStatus = Literal["ok", "missing", "drift"]
 PreviewStatus = Literal[
-    "ok", "empty", "low_text_density", "anchor_drift", "unsupported_method"
+    "ok",
+    "empty",
+    "low_text_density",
+    "anchor_drift",
+    "unsupported_method",
+    "out_of_bounds",
+    "invalid_page",
 ]
 
 Bbox = tuple[float, float, float, float]
@@ -266,6 +272,9 @@ class FormTemplate(BaseModel):
         field_ids = [field.id for field in self.fields]
         if len(field_ids) != len(set(field_ids)):
             raise ValueError("field ids must be unique")
+        field_names = [field.name for field in self.fields]
+        if len(field_names) != len(set(field_names)):
+            raise ValueError("field names must be unique")
         if self.template_state == "validated" and not self.anchors:
             raise ValueError("validated templates must include at least one anchor")
         return self
