@@ -8,7 +8,7 @@ UI_DIR := $(ROOT_DIR)/accord-extractor-ui
 BACKEND_CMD := cd '$(ROOT_DIR)' && uv run acord-extractor serve-api --host $(BACKEND_HOST) --port $(BACKEND_PORT)
 FRONTEND_CMD := cd '$(UI_DIR)' && npm run dev -- --host $(FRONTEND_HOST) --port $(FRONTEND_PORT)
 
-.PHONY: py-lint js-lint lint py-test js-test test pycheck jscheck start-build start
+.PHONY: py-lint js-lint lint py-test js-test test pycheck jscheck start-build start docker-up docker-down docker-build docker-logs
 
 py-lint:
 	uv run ruff check --fix src/
@@ -50,3 +50,19 @@ pystart:
 start: pystart jsstart
 
 check: pycheck jscheck
+
+
+docker-up:
+	docker compose up
+
+
+docker-build:
+	docker compose build
+
+
+docker-down:
+	docker compose down
+
+
+docker-logs:
+	docker compose logs -f

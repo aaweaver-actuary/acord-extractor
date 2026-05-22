@@ -843,3 +843,24 @@ Docker reconfiguration is complete when:
 - Keep OCR inside backend container initially.
 - Optimize for deterministic development environments rather than production minimalism.
 - Delay operational complexity until real requirements emerge.
+---
+
+# Execution Tracker (May 22, 2026)
+
+## Phase 1 Implementation Checklist
+
+- [x] Add root `docker-compose.yml` with `backend` and `frontend` services.
+- [x] Add backend Dockerfile (`Dockerfile.backend`) using `python:3.12-slim` and `uv`.
+- [x] Add frontend Dockerfile (`accord-extractor-ui/Dockerfile`) using `node:22`.
+- [x] Add `.env.example` with `WORKSPACE_ROOT` and dockerized API defaults.
+- [x] Create mounted local workspace directories under `./workspace`.
+- [x] Add Docker helper targets to `Makefile`.
+- [x] Update `README.md` with Docker-first startup workflow.
+- [x] Add regression test proving extraction works on a generated sample PDF created during the test run.
+
+## Next execution focus
+
+1. Build the Docker images and validate container startup.
+2. Run full repo checks (`make check`) and fix any regressions.
+3. Validate extraction and preview via containerized CLI against generated sample fixture.
+4. Confirm definition-of-done behavior and document any remaining gaps.
