@@ -16,3 +16,4 @@ accord-extractor-ui/dist/
 .npm-cache/
 .coverage
 accord-extractor-ui/package-lock.json
+structured-codebase.xml
